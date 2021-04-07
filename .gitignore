@@ -1,0 +1,7 @@
+# Project exclude paths
+/cmake-build-debug/
+/cmake-build-release/
+/data/
+/models/
+/runs/
+/tmp/
