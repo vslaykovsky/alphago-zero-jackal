@@ -11,7 +11,7 @@ project(jackal)
 
 
 # torch
-set(Torch_DIR /home/vslaykovsky/Downloads/libtorch-cxx11-abi-shared-with-deps-1.8.0+cu111/libtorch/share/cmake/Torch)
+set(Torch_DIR /home/vslaykovsky/Downloads/libtorch-cxx11-abi-shared-with-deps-1.8.1+cu111/libtorch/share/cmake/Torch)
 find_package(Torch REQUIRED)
 include_directories(${TORCH_INCLUDE_DIRS})
 
@@ -43,9 +43,9 @@ include_directories(third_party/tensorboard_logger/include)
 #SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -lm -ldl")
 
 # rl
-add_executable(self_play src/jackal_simple_self_play.cpp ${SRCS})
-target_link_libraries(self_play ${TORCH_LIBRARIES} ${OpenCV_LIBS})
-set_property(TARGET self_play PROPERTY CXX_STANDARD 14)
+#add_executable(self_play src/jackal_simple_self_play.cpp ${SRCS})
+#target_link_libraries(self_play ${TORCH_LIBRARIES} ${OpenCV_LIBS})
+#set_property(TARGET self_play PROPERTY CXX_STANDARD 14)
 
 
 #alphago_zero

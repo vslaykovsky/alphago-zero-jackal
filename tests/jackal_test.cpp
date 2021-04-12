@@ -65,8 +65,21 @@ TEST(JackalTest, FullTrainingCycle) {
     };
     Jackal game;
     JackalModel model;
-    Trainer<Jackal, JackalModel> trainer(config, false);
-    auto result = trainer.simulate_and_train(model);
+    JackalModel rnd_model;
+    Trainer<Jackal, JackalModel> trainer(config);
+    auto result = trainer.simulate_and_train(
+            model,
+            rnd_model,
+            nullptr,
+            [](JackalModel &model, unordered_map<string, float> &config) {
+                vector<SelfPlayResult> results;
+                for (int i = 0; i < int(config["simulation_cycle_games"]); ++i) {
+                    Jackal game;
+                    results.push_back(
+                            mcts_model_self_play(game, model, model, int(config["mcts_iteratioins"]), 1000, 1, 1));
+                }
+                return results;
+            });
     torch::save(model, "models/jackal_model.pt");
 }
 

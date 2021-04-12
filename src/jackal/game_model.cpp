@@ -82,9 +82,9 @@ torch::Tensor PolicyHeadImpl::forward(torch::Tensor x) {
 }
 
 JackalModelImpl::JackalModelImpl(c10::IntArrayRef input_shape, int res_channels, int blocks, int players) : blocks(blocks) {
-    int input_channels = (int) input_shape[0];
-    int height = (int) input_shape[1];
-    int width = (int) input_shape[2];
+    int input_channels = (int) input_shape[1];
+    int height = (int) input_shape[2];
+    int width = (int) input_shape[3];
     conv = register_module("conv", ConvModel(input_channels, res_channels));
     for (int i = 0; i < blocks; ++i) {
         register_module("res" + std::to_string(i), ResModel(res_channels));

@@ -70,7 +70,7 @@ struct JackalModelImpl : torch::nn::Module {
     ValueHead value_head{nullptr};
     int blocks;
 
-    JackalModelImpl(c10::IntArrayRef input_shape = {19, 12, 12}, int res_channels = 128, int blocks = 10,
+    JackalModelImpl(c10::IntArrayRef input_shape = {1, 19, 12, 12}, int res_channels = 128, int blocks = 10,
                     int players = 2);
 
     GameModelOutput forward(torch::Tensor x);

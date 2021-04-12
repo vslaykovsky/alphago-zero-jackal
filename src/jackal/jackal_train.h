@@ -48,7 +48,7 @@ void self_play_thread(TTaskQueue *task_queue, TModelQueue *model_queue, std::ato
         while (!task_queue->try_dequeue(task));
         auto &config(task->config);
         task->model->eval();
-        task->self_play_result = mcts_model_self_play<Jackal, JackalModel>(
+        task->self_play_result = mcts_model_self_play<>(
                 task->jackal,
                 [model_queue, &semaphore](const Jackal &state) {
                     auto x = state.get_state();

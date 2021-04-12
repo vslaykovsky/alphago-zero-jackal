@@ -8,8 +8,9 @@ using namespace std;
 TEST(GameModel, TestActionFilters) {
     Jackal game(7, 7, 2);
     JackalModel model(game.get_state().sizes(), 128, 10, 2);
-    model->to(torch::kCUDA);
-    auto state = game.get_state().to(torch::kCUDA);
+    auto device = torch::kCUDA;
+    model->to(device);
+    auto state = game.get_state().to(device);
     vector<torch::Tensor> query = {game.encode_possible_actions()};
     torch::Tensor value;
     vector<torch::Tensor> policy;

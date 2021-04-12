@@ -27,10 +27,11 @@ struct SelfPlayResult {
 };
 
 
-template<class TGame, class TModel, class F>
+template<class TGame, class F>
 SelfPlayResult
-mcts_model_self_play(TGame game, F state_action_value_func, int mcts_steps, int max_turns, float temperature, float exploration,
-                     torch::Device device=torch::kCPU, std::atomic<int>* turns=nullptr, bool verbose = false) {
+mcts_model_self_play(TGame game, F state_action_value_func, int mcts_steps, int max_turns, float temperature,
+                     float exploration,
+                     torch::Device device = torch::kCPU, std::atomic<int> *turns = nullptr, bool verbose = false) {
     torch::NoGradGuard no_grad;
     SelfPlayResult self_play_result;
     MCTSStateActionValue state_action_value;
@@ -48,7 +49,7 @@ mcts_model_self_play(TGame game, F state_action_value_func, int mcts_steps, int 
         if (verbose) {
             std::cout << game << std::endl;
         }
-        turn ++;
+        turn++;
         if (turns) {
             (*turns)++;
         }
@@ -59,7 +60,22 @@ mcts_model_self_play(TGame game, F state_action_value_func, int mcts_steps, int 
     return self_play_result;
 }
 
-
+template<class TGame, class TModel>
+SelfPlayResult
+mcts_model_self_play(TGame game, TModel model1, TModel model2, int mcts_steps, int max_turns, float temperature,
+                     float exploration,
+                     torch::Device device = torch::kCPU, std::atomic<int> *turns = nullptr, bool verbose = false) {
+    mcts_model_self_play(game, [&model1, &model2](const TGame &game) {
+        MCTSStateActionValue result;
+        GameModelOutput gmo;
+        if (game.get_current_player_id() == 0) {
+            gmo = model1(game.get_state());
+        } else {
+            gmo = model2(game.get_state());
+        }
+        return to_state_action_value(gmo, game);
+    }, mcts_steps, max_turns, temperature, exploration, device, turns, verbose);
+}
 
 template<class TGame, class TModel>
 SelfPlayResult model_self_play(TModel player1, TModel player2, float model1_temperature, float model2_temperature,

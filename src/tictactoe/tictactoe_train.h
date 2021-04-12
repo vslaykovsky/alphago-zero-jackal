@@ -51,12 +51,8 @@ float tictactoe_train(std::unordered_map<std::string, float> config_map) {
                     self_plays.emplace_back(
                             mcts_model_self_play<TicTacToe, TicTacToeModel>(
                                     TicTacToe(),
-                                    [&model](const TicTacToe &state) {
-                                        auto x = state.get_state();
-                                        GameModelOutput output;
-                                        output = model(x);
-                                        return to_state_action_value(output, state);
-                                    },
+                                    model,
+                                    model,
                                     int(config.at("mcts_iterations")),
                                     10,
                                     config.at("simulation_temperature"),
