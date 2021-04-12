@@ -27,9 +27,9 @@ include_directories(${Protobuf_INCLUDE_DIRS})
 find_package(nlohmann_json REQUIRED)
 include_directories()
 
-file(GLOB_RECURSE SRCS src/tictactoe/*.cpp src/jackal/*.cpp src/mcts/*.cpp src/rl/*.cpp src/util/*.cpp third_party/tensorboard_logger/src/*.cc)
+file(GLOB_RECURSE SRCS src/tictactoe/*.cpp src/jackal/*.cpp src/mcts/*.cpp src/rl/*.cpp src/util/*.cpp third_party/tb_logger/src/*.cc)
 link_libraries(stdc++fs)
-include_directories(third_party/tensorboard_logger/include)
+include_directories(third_party/tb_logger/include)
 
 # perftest
 #add_executable(perftest src/perftest.cpp)
