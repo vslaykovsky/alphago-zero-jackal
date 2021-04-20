@@ -27,9 +27,7 @@ struct TestCopy  {
     }
 
     TestCopy f() {
-        cout << "f start" << endl;
         TestCopy b(*this);
-        cout << "f after copy" << endl;
         b.a++;
         return b;
     }

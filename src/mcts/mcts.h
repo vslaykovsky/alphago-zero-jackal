@@ -2,11 +2,14 @@
 
 #include <unordered_map>
 #include <cmath>
-#include <ostream>
+#include <iostream>
 #include <functional>
 #include <vector>
 #include <random>
 #include <memory>
+
+#include "../util/utils.h"
+
 
 typedef std::vector<float> MCTSStateValue;
 typedef std::unordered_map<int, float> MCTSActionValue;
@@ -16,15 +19,17 @@ struct MCTSStateActionValue {
     MCTSActionValue action_proba;
 
     int sample_action(float temperature = 1.0) const {
-        static std::default_random_engine generator(123);
         std::vector<float> values;
         std::vector<int> actions;
         for (auto &kv: action_proba) {
             values.push_back(pow(kv.second, 1 / temperature));
             actions.push_back(kv.first);
+
         }
         std::discrete_distribution<int> distribution(&values[0], &values[0] + values.size());
-        int action_idx = distribution(generator);
+        int action_idx = distribution(get_generator());
+
+
         return actions[action_idx];
     }
 

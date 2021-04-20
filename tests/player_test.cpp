@@ -33,6 +33,6 @@ TEST(PlayerTest, ShipActionsTest) {
 
     auto actions = p.get_ship_actions();
     ASSERT_EQ(2, actions.size());
-    ASSERT_EQ(Action(Coords(0, 2), Coords(0, 3), true), *actions.begin());
-    ASSERT_EQ(Action(Coords(0, 2), Coords(0, 1), true), *(++actions.begin()));
+    ASSERT_EQ(Action(Coords(0, 2), Coords(0, 3), false), *actions.begin());
+    ASSERT_EQ(Action(Coords(0, 2), Coords(0, 1), false), *(++actions.begin()));
 }

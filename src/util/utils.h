@@ -48,7 +48,5 @@ inline std::ostream& operator<<(std::ostream&os, const std::unordered_map<T1, T2
 
 
 
-inline std::mt19937 randomizer() {
-    static std::mt19937 g(123);
-    return g;
-};
+
+std::default_random_engine& get_generator();

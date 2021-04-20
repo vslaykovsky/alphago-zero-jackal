@@ -28,7 +28,7 @@ find_package(nlohmann_json REQUIRED)
 include_directories()
 
 file(GLOB_RECURSE SRCS src/tictactoe/*.cpp src/jackal/*.cpp src/mcts/*.cpp src/rl/*.cpp src/util/*.cpp third_party/tb_logger/src/*.cc)
-link_libraries(stdc++fs)
+link_libraries(stdc++fs ${TORCH_LIBRARIES} ${OpenCV_LIBS} ${Protobuf_LIBRARIES})
 include_directories(third_party/tb_logger/include)
 
 # perftest
@@ -48,6 +48,8 @@ include_directories(third_party/tb_logger/include)
 #set_property(TARGET self_play PROPERTY CXX_STANDARD 14)
 
 
+
+
 #alphago_zero
 add_executable(alphago_zero src/alphago_zero.cpp ${SRCS})
 target_link_libraries(alphago_zero nlohmann_json::nlohmann_json  ${TORCH_LIBRARIES} ${OpenCV_LIBS} ${Protobuf_LIBRARIES} )
@@ -61,7 +63,7 @@ include_directories(${GTEST_INCLUDE_DIR})
 
 file(GLOB TEST_SRCS tests/*.cpp)
 add_executable(unittests ${TEST_SRCS} ${SRCS})
-target_link_libraries(unittests gtest_main gtest pthread ${TORCH_LIBRARIES} ${OpenCV_LIBS} ${Protobuf_LIBRARIES})
+target_link_libraries(unittests gtest_main gtest)
 add_test(
         NAME unittests
         COMMAND unittests

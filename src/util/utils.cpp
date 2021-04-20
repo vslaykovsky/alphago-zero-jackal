@@ -24,3 +24,9 @@ void copy_with_alpha(cv::Mat &to, cv::Mat &from, int xPos, int yPos) {
     merge(rgb, 3, rgb_mat);  // put together the RGB channels, now from insn't transparent
     rgb_mat.copyTo(to.rowRange(yPos, yPos + rgb_mat.rows).colRange(xPos, xPos + rgb_mat.cols), mask);
 }
+
+std::default_random_engine dre;
+
+std::default_random_engine& get_generator() {
+    return dre;
+}

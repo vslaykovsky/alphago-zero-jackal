@@ -9,6 +9,7 @@
 #include "../mcts/mcts.h"
 #include "../tictactoe/tictactoe_model.h"
 #include "play.h"
+#include "../util/utils.h"
 
 struct SelfPlayResult {
     std::vector<MCTSStateActionValue> state_action_values;
@@ -30,8 +31,7 @@ struct SelfPlayResult {
 template<class TGame, class F>
 SelfPlayResult
 mcts_model_self_play(TGame game, F state_action_value_func, int mcts_steps, int max_turns, float temperature,
-                     float exploration,
-                     torch::Device device = torch::kCPU, std::atomic<int> *turns = nullptr, bool verbose = false) {
+                     float exploration, std::atomic<int> *turns = nullptr, bool verbose = false) {
     torch::NoGradGuard no_grad;
     SelfPlayResult self_play_result;
     MCTSStateActionValue state_action_value;
@@ -53,6 +53,7 @@ mcts_model_self_play(TGame game, F state_action_value_func, int mcts_steps, int 
         if (turns) {
             (*turns)++;
         }
+        std::cout << "turn " << turn << std::endl;
     }
     self_play_result.add_state(game.get_state(),
                                state_action_value);  // reuse last state_action_value. might be suboptimal
@@ -63,22 +64,26 @@ mcts_model_self_play(TGame game, F state_action_value_func, int mcts_steps, int 
 template<class TGame, class TModel>
 SelfPlayResult
 mcts_model_self_play(TGame game, TModel model1, TModel model2, int mcts_steps, int max_turns, float temperature,
-                     float exploration,
-                     torch::Device device = torch::kCPU, std::atomic<int> *turns = nullptr, bool verbose = false) {
-    mcts_model_self_play(game, [&model1, &model2](const TGame &game) {
+                     float exploration, std::atomic<int> *turns = nullptr, torch::Device device=torch::kCPU, bool verbose = false) {
+    model1->to(device);
+    model2->to(device);
+    return mcts_model_self_play(game, [&model1, &model2, &device](const TGame &game) {
         MCTSStateActionValue result;
         GameModelOutput gmo;
+        model1->named_parameters();
+
         if (game.get_current_player_id() == 0) {
-            gmo = model1(game.get_state());
+            gmo = model1(game.get_state().to(device));
         } else {
-            gmo = model2(game.get_state());
+            gmo = model2(game.get_state().to(device));
         }
         return to_state_action_value(gmo, game);
-    }, mcts_steps, max_turns, temperature, exploration, device, turns, verbose);
+    }, mcts_steps, max_turns, temperature, exploration, turns, verbose);
 }
 
 template<class TGame, class TModel>
-SelfPlayResult model_self_play(TModel player1, TModel player2, float model1_temperature, float model2_temperature,
+SelfPlayResult model_self_play(TModel player1, TModel player2,
+                               float model1_temperature, float model2_temperature,
                                bool verbose = false) {
     using namespace std;
     TGame game;
@@ -110,7 +115,7 @@ TGame random_self_play() {
     TGame game;
     while (true) {
         const std::vector<int> &actions = game.get_possible_actions();
-        if (actions.empty()) {
+        if (actions.empty()){
             break;
         }
         int action = actions[rand() % actions.size()];

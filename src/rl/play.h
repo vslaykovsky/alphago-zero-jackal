@@ -9,11 +9,11 @@ MCTSActionValue filter_renormalize_actions(torch::Tensor tensor, const std::vect
 template<class T>
 MCTSStateActionValue to_state_action_value(GameModelOutput &output, const T &game_state) {
     auto policy = output.policy.to(torch::kCPU)[0];
-//    auto value = output.value.to(torch::kCPU)[0];
+    auto value = output.value.to(torch::kCPU)[0];
     auto actions = game_state.get_possible_actions();
     auto action_proba = filter_renormalize_actions(policy, actions);
-    return MCTSStateActionValue{
-//            MCTSStateValue(value.data_ptr<float>(), value.data_ptr<float>() + value.numel()),
-            MCTSStateValue(),
-            action_proba};
+    return MCTSStateActionValue {
+            MCTSStateValue(value.data_ptr<float>(), value.data_ptr<float>() + value.numel()),
+            action_proba
+    };
 }

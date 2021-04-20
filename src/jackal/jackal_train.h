@@ -62,7 +62,6 @@ void self_play_thread(TTaskQueue *task_queue, TModelQueue *model_queue, std::ato
                 int(config.at("simulation_max_turns")),
                 config.at("simulation_temperature"),
                 config.at("mcts_exploration"),
-                torch::kCUDA,
                 turns
         );
         (*jobs_comleted)++;

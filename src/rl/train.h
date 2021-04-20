@@ -2,7 +2,7 @@
 
 #include "self_play.h"
 #include "../util/utils.h"
-#include "../../third_party/tensorboard_logger/include/tensorboard_logger.h"
+#include "../../third_party/tb_logger/include/tensorboard_logger.h"
 #include <experimental/filesystem>
 #include <utility>
 
@@ -34,7 +34,7 @@ public:
 
         }
         if (shuffle)
-            std::shuffle(items.begin(), items.end(), randomizer());
+            std::shuffle(items.begin(), items.end(), get_generator());
         for (int batch_idx = 0; batch_idx < items.size(); batch_idx += batch_size) {
             std::vector<torch::Tensor> x;
             std::vector<torch::Tensor> action_proba;
@@ -66,48 +66,20 @@ public:
     std::vector<Example> examples;
 };
 
-template<class TGame>
-class StateValueDataset : public torch::data::Dataset<StateValueDataset<TGame>> {
-public:
-    explicit StateValueDataset(int size) {
-        std::cout << "Generating StateValueDataset: " << size << " samples" << std::endl;
-        for (int i = 0; i < size; ++i) {
-            TGame game = random_self_play<TGame>();
-            states.push_back(game.get_state());
-            MCTSStateValue reward = game.get_reward();
-            state_values.push_back(
-                    torch::from_blob(&reward[0], at::IntArrayRef({(int) reward.size()}), torch::kFloat).clone());
-        }
-    }
 
-    torch::data::Example<> get(size_t index) override {
-        return torch::data::Example<>(states[index], state_values[index]);
-    }
-
-    torch::optional<size_t> size() const override {
-        return states.size();
-    }
-
-    std::vector<torch::Tensor> states;
-    std::vector<torch::Tensor> state_values;
-};
-
-
-template<class TGame, class TModel>
-float evaluate(TModel model, StateValueDataset<TGame> &ds) {
+template<class TModel>
+float evaluate(TModel model, const SelfPlayDataset &ds) {
     model->eval();
     torch::NoGradGuard no_grad;
 
-    auto data_loader = torch::data::make_data_loader(ds.map(torch::data::transforms::Stack<>()), 32);
-    int total = 0;
     float loss = 0.;
-    for (auto &batch : *data_loader) {
-        auto y = model(batch.data);
-        auto target = batch.target;
-        total += target.size(0);
-        loss = loss + torch::mse_loss(y.value, target, at::Reduction::Sum).item().toDouble();
+    for (int i = 0; i < ds.size(); ++i) {
+        auto sample = ds.get(i);
+        auto y = model(sample.x);
+        auto target = sample.state_value;
+        loss = loss + torch::mse_loss(y.value, target).item().toDouble();
     }
-    return loss / (float) total;
+    return loss / ds.size();
 }
 
 
@@ -115,7 +87,9 @@ template<class TGame, class TModel>
 float
 compare_models(TModel model1, TModel model2, int trials, double model1_temperature, double model2_temperature) {
     model1->eval();
+    model1->to(torch::kCPU);
     model2->eval();
+    model2->to(torch::kCPU);
     torch::NoGradGuard no_grad;
 
     MCTSStateValue result(2);
@@ -196,12 +170,13 @@ public:
     float train(TModel model,
                 const SelfPlayDataset &ds,
                 TModel baseline_model,
-                StateValueDataset<TGame> *eval_set,
+                SelfPlayDataset *eval_set,
                 int &step) {
         using namespace std;
         cout << "running " << int(config["train_epochs"]) << " training epochs" << endl;
         using namespace std;
         model->train();
+        model->to(device);
         torch::optim::Adam optimizer(model->parameters(),
                                      torch::optim::AdamOptions(config["train_learning_rate"]).weight_decay(
                                              config["train_l2_regularization"]));
@@ -214,7 +189,7 @@ public:
             for (int i = 0; i < ds.size(); ++i, ++step) {
                 optimizer.zero_grad();
                 const auto &example = ds.get(i);
-                const auto &output = model(example.x);
+                const auto &output = model(example.x.to(device));
                 auto policy_loss = torch::nll_loss(output.policy, example.action_proba);
                 auto state_value_loss = torch::mse_loss(output.value, example.state_value);
                 auto loss = policy_loss + state_value_loss;
@@ -227,11 +202,11 @@ public:
             }
             train_loss /= (float) ds.size();
             cout << "epoch:" << epoch << " train_loss:" << train_loss << endl;
-//            benchmark_loss = compare_models<TGame, TModel>(model, baseline_model, int(config["eval_size"]),
-//                                                           config["eval_temperature"], 1.);
-//            logger.add_scalar("benchmark-loss/eval", step, benchmark_loss);
+            benchmark_loss = compare_models<TGame, TModel>(model, baseline_model, int(config["eval_size"]),
+                                                           config["eval_temperature"], 1.);
+            logger.add_scalar("benchmark-loss/eval", step, benchmark_loss);
             if (eval_set != nullptr) {
-                logger.add_scalar("value-loss/eval", step, evaluate<TGame, TModel>(model, *eval_set));
+                logger.add_scalar("state-value-loss/eval", step, evaluate<TModel>(model, *eval_set));
             }
             logger.add_scalar("epoch/train", step, (float) epoch);
             time_t t1;
@@ -247,7 +222,7 @@ public:
     float simulate_and_train(
             TModel model,
             TModel random_model,
-            StateValueDataset<TGame> *eval_set,
+            SelfPlayDataset  *eval_set,
             S gen_self_plays
     ) {
         using namespace std;

@@ -8,15 +8,6 @@ using namespace std;
 
 
 
-TEST(MCTS, TicTacToe) {
-    srand(12);
-    TicTacToe ttt;
-    while (!ttt.get_possible_actions().empty()) {
-        const vector<int> &actions = ttt.get_possible_actions();
-        ttt = ttt.take_action(actions[rand() % actions.size()]);
-    }
-    ASSERT_EQ(ttt.get_reward()[0], 1);
-}
 
 TEST(MCTS, MCTSTicTacToe) {
     TicTacToe game;
