@@ -34,11 +34,10 @@ float tictactoe_train(std::unordered_map<std::string, float> config_map) {
     }
 
     Trainer<TicTacToe, TicTacToeModel> trainer(config_map);
-    StateValueDataset<TicTacToe> eval_set(100);
     auto result = trainer.simulate_and_train(
             model,
             baseline_model,
-            &eval_set,
+            nullptr,
             [](
                     TicTacToeModel &model,
                     const std::unordered_map<std::string, float> &config

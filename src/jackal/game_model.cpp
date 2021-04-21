@@ -82,6 +82,7 @@ torch::Tensor PolicyHeadImpl::forward(torch::Tensor x) {
 }
 
 JackalModelImpl::JackalModelImpl(c10::IntArrayRef input_shape, int res_channels, int blocks, int players) : blocks(blocks) {
+    assert(input_shape.size() == 4);
     int input_channels = (int) input_shape[1];
     int height = (int) input_shape[2];
     int width = (int) input_shape[3];

@@ -101,27 +101,16 @@ void reply(RequestContext &request) {
     auto &items(request.items);
     auto &model_output(request.model_output);
     model_output.policy = model_output.policy.to(torch::kCPU);
-//    model_output.value = model_output.value.to(torch::kCPU);
+    model_output.value = model_output.value.to(torch::kCPU);
     for (int i = 0; i < items.size(); ++i) {
-        items[i].output->policy = model_output.policy.index({i, "..."});
+        items[i].output->policy = model_output.policy.index({i, "..."}).unsqueeze(0);
+        items[i].output->value = model_output.value.index({i, "..."}).unsqueeze(0);
         items[i].semaphore->signal();
     }
 }
 
-// root only
-void set_high_thread_priority() {
-    int priority_max = sched_get_priority_max(SCHED_FIFO);
-    int priority_min = sched_get_priority_min(SCHED_FIFO);
-    pthread_t main_id = pthread_self();
-    struct sched_param param{};
-    param.sched_priority=priority_max;
-    int status = pthread_setschedparam(main_id, SCHED_FIFO, &param);
-    if (status != 0)
-        perror("pthread_setschedparam");
-}
 
 void model_loop(JackalModel* model, TModelQueue* queue, std::atomic<bool>* terminated) {
-//    set_high_thread_priority();
     time_t tm;
     time(&tm);
     RequestContext cur_request;
@@ -181,9 +170,9 @@ jackal_train(const std::unordered_map<std::string, float> &config_map, int width
     const at::Tensor &game_state = game.get_state().squeeze(0);
     c10::IntArrayRef dim = game_state.sizes();
     int channels = dim[0];
-    JackalModel model(c10::IntArrayRef{channels, height, width});
+    JackalModel model(c10::IntArrayRef{1, channels, height, width});
     model->to(device);
-    JackalModel baseline_model(c10::IntArrayRef{channels, height, width});
+    JackalModel baseline_model(c10::IntArrayRef{1, channels, height, width});
     baseline_model->to(device);
 
     std::unordered_map<std::string, float> config(config_map);

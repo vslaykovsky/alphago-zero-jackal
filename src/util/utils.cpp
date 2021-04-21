@@ -30,3 +30,16 @@ std::default_random_engine dre;
 std::default_random_engine& get_generator() {
     return dre;
 }
+
+
+// root only
+void set_high_thread_priority() {
+    int priority_max = sched_get_priority_max(SCHED_FIFO);
+    int priority_min = sched_get_priority_min(SCHED_FIFO);
+    pthread_t main_id = pthread_self();
+    struct sched_param param{};
+    param.sched_priority=priority_max;
+    int status = pthread_setschedparam(main_id, SCHED_FIFO, &param);
+    if (status != 0)
+        perror("pthread_setschedparam");
+}

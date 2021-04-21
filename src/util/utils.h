@@ -47,6 +47,8 @@ inline std::ostream& operator<<(std::ostream&os, const std::unordered_map<T1, T2
 }
 
 
+// root only
+void set_high_thread_priority() ;
 
 
 std::default_random_engine& get_generator();
