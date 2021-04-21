@@ -40,17 +40,20 @@ typedef ConcurrentQueue<std::unique_ptr<TTaskJob>> TTaskQueue;
 typedef ConcurrentQueue<TModelJob> TModelQueue;
 
 
-void self_play_thread(TTaskQueue *task_queue, TModelQueue *model_queue, std::atomic<int> *jobs_comleted,
-                      std::atomic<int> *turns, std::atomic<bool>* terminated) {
+void
+self_play_thread(int thread_num, TTaskQueue *task_queue, TModelQueue *model_queue, std::atomic<int> *jobs_completed,
+                 std::atomic<int> *turns, std::atomic<bool> *terminated) {
+    using namespace std;
     LightweightSemaphore semaphore;
     std::unique_ptr<TTaskJob> task;
+    cout << "[thread:" << thread_num << "] started thread" << endl;
     while (!*terminated) {
         while (!task_queue->try_dequeue(task));
+        cout << "[thread:" << thread_num << "] started task" << endl;
         auto &config(task->config);
-        task->model->eval();
         task->self_play_result = mcts_model_self_play<>(
                 task->jackal,
-                [model_queue, &semaphore](const Jackal &state) {
+                [thread_num, model_queue, &semaphore](const Jackal &state) {
                     auto x = state.get_state();
                     GameModelOutput output;
                     TModelJob item{&x, &output, &semaphore};
@@ -64,7 +67,8 @@ void self_play_thread(TTaskQueue *task_queue, TModelQueue *model_queue, std::ato
                 config.at("mcts_exploration"),
                 turns
         );
-        (*jobs_comleted)++;
+        (*jobs_completed)++;
+        cout << "[thread:" << thread_num << "] finished task" << endl;
     }
 }
 
@@ -81,7 +85,7 @@ bool read_request(TModelQueue &queue, RequestContext &request) {
     items.clear();
     TModelJob item{};
     while (items.empty()) {
-        if (queue.try_dequeue(item)) {
+        while (queue.try_dequeue(item)) {
             if (item.semaphore == nullptr) {
                 terminate = true;
             } else {
@@ -110,15 +114,18 @@ void reply(RequestContext &request) {
 }
 
 
-void model_loop(JackalModel* model, TModelQueue* queue, std::atomic<bool>* terminated) {
+void model_loop(JackalModel model, TModelQueue *queue, std::atomic<bool> *terminated, int *total_requests) {
     time_t tm;
     time(&tm);
     RequestContext cur_request;
+    torch::NoGradGuard no_grad;
+    model->eval();
     while (!*terminated) {
         TModelJob item;
         read_request(*queue, cur_request);
-        cur_request.model_output = (*model)(cur_request.batch);
+        cur_request.model_output = (model)(cur_request.batch);
         reply(cur_request);
+        (*total_requests) += cur_request.items.size();
     }
 }
 
@@ -144,14 +151,19 @@ std::vector<SelfPlayResult> multithreaded_self_plays(
     std::atomic<int> jobs_completed(0);
     std::atomic<int> turns(0);
     int num_threads = int(config.at("simulation_threads"));
-    std::vector<std::thread> sim_threads;
+    std::vector<std::thread> sim_threads(num_threads);
     for (int i = 0; i < num_threads; ++i) {
-        sim_threads.emplace_back(std::thread(self_play_thread, &task_queue, &model_queue, &jobs_completed, &turns, &terminated));
+        sim_threads.emplace_back(
+                std::thread(self_play_thread, i, &task_queue, &model_queue, &jobs_completed, &turns, &terminated));
     }
-    std::thread model_thread(model_loop, &model, &model_queue, &terminated);
+    int total_requests = 0;
+    std::thread model_thread(model_loop, model, &model_queue, &terminated, &total_requests);
+    int prev_requests = 0;
     while (jobs_completed < self_plays.size()) {
         sleep(1);
-        cout << "Simulations completed: " << jobs_completed << ". Total turns:" << turns << endl;
+        cout << "Simulations completed: " << jobs_completed << ". Total turns:" << turns << ". Total requests served: "
+             << total_requests << ". Requests per second: " << (total_requests - prev_requests) << endl;
+        prev_requests = total_requests;
     }
     terminated = true;
     for (auto &t: sim_threads) {
@@ -193,7 +205,7 @@ jackal_train(const std::unordered_map<std::string, float> &config_map, int width
             {"mcts_iterations",         256},
             {"mcts_exploration",        2},
 
-            {"eval_size",               10},
+            {"eval_size",               0},
             {"eval_temperature",        0.1},
 
             {"timeout",                 600}

@@ -53,7 +53,7 @@ mcts_model_self_play(TGame game, F state_action_value_func, int mcts_steps, int 
         if (turns) {
             (*turns)++;
         }
-        std::cout << "turn " << turn << std::endl;
+//        std::cout << "turn " << turn << std::endl;
     }
     self_play_result.add_state(game.get_state(),
                                state_action_value);  // reuse last state_action_value. might be suboptimal

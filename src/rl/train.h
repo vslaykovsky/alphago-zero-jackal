@@ -86,6 +86,9 @@ float evaluate(TModel model, const SelfPlayDataset &ds) {
 template<class TGame, class TModel>
 float
 compare_models(TModel model1, TModel model2, int trials, double model1_temperature, double model2_temperature) {
+    if (trials == 0) {
+        return 0.;
+    }
     model1->eval();
     model1->to(torch::kCPU);
     model2->eval();
@@ -159,6 +162,10 @@ public:
             if (config.find(kv.first) == config.end()) {
                 config[kv.first] = kv.second;
             }
+        }
+        std::cout << "Starting Trainer with configuration:" << std::endl;
+        for (auto &kv: config) {
+            std::cout << "  " << kv.first << ": \t" << kv.second << std::endl;
         }
         for (auto &kv: config) {
             if (default_config.find(kv.first) == default_config.end()) {
