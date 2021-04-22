@@ -48,7 +48,11 @@ self_play_thread(int thread_num, TTaskQueue *task_queue, TModelQueue *model_queu
     std::unique_ptr<TTaskJob> task;
     cout << "[thread:" << thread_num << "] started thread" << endl;
     while (!*terminated) {
-        while (!task_queue->try_dequeue(task));
+        while (!task_queue->try_dequeue(task)) {
+            if (*terminated) {
+                goto exit_thread;
+            }
+        }
         cout << "[thread:" << thread_num << "] started task" << endl;
         auto &config(task->config);
         task->self_play_result = mcts_model_self_play<>(
@@ -70,35 +74,38 @@ self_play_thread(int thread_num, TTaskQueue *task_queue, TModelQueue *model_queu
         (*jobs_completed)++;
         cout << "[thread:" << thread_num << "] finished task" << endl;
     }
+    exit_thread:
+    cout << "[thread:" << thread_num << "] exit thread" << endl;
 }
 
 struct RequestContext {
     std::vector<TModelJob> items;
     torch::Tensor batch;
     GameModelOutput model_output;
+
+    bool empty() const {
+        return items.empty();
+    }
 };
 
 
-bool read_request(TModelQueue &queue, RequestContext &request) {
+bool read_request(TModelQueue &queue, RequestContext &request, std::atomic<bool> *terminated) {
     auto &items = request.items;
-    bool terminate = false;
     items.clear();
     TModelJob item{};
-    while (items.empty()) {
-        while (queue.try_dequeue(item)) {
-            if (item.semaphore == nullptr) {
-                terminate = true;
-            } else {
-                items.push_back(item);
-            }
+    while (items.empty() && !*terminated) {
+        while (queue.try_dequeue(item) && !*terminated) {
+            items.push_back(item);
         }
     }
-    std::vector<torch::Tensor> states;
-    for (auto &i : items) {
-        states.push_back(*i.state);
+    if (!items.empty()) {
+        std::vector<torch::Tensor> states;
+        for (auto &i : items) {
+            states.push_back(*i.state);
+        }
+        request.batch = torch::cat({&states[0], states.size()}).to(torch::kCUDA);
     }
-    request.batch = torch::cat({&states[0], states.size()}).to(torch::kCUDA);
-    return terminate;
+    return !items.empty();
 }
 
 void reply(RequestContext &request) {
@@ -122,10 +129,11 @@ void model_loop(JackalModel model, TModelQueue *queue, std::atomic<bool> *termin
     model->eval();
     while (!*terminated) {
         TModelJob item;
-        read_request(*queue, cur_request);
-        cur_request.model_output = (model)(cur_request.batch);
-        reply(cur_request);
-        (*total_requests) += cur_request.items.size();
+        if (read_request(*queue, cur_request, terminated)) {
+            cur_request.model_output = (model)(cur_request.batch);
+            reply(cur_request);
+            (*total_requests) += cur_request.items.size();
+        }
     }
 }
 
@@ -151,7 +159,8 @@ std::vector<SelfPlayResult> multithreaded_self_plays(
     std::atomic<int> jobs_completed(0);
     std::atomic<int> turns(0);
     int num_threads = int(config.at("simulation_threads"));
-    std::vector<std::thread> sim_threads(num_threads);
+    std::vector<std::thread> sim_threads;
+    sim_threads.reserve(num_threads);
     for (int i = 0; i < num_threads; ++i) {
         sim_threads.emplace_back(
                 std::thread(self_play_thread, i, &task_queue, &model_queue, &jobs_completed, &turns, &terminated));

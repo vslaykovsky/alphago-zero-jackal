@@ -52,7 +52,7 @@ include_directories(third_party/tb_logger/include)
 
 #alphago_zero
 add_executable(alphago_zero src/alphago_zero.cpp ${SRCS})
-target_link_libraries(alphago_zero nlohmann_json::nlohmann_json  ${TORCH_LIBRARIES} ${OpenCV_LIBS} ${Protobuf_LIBRARIES} )
+target_link_libraries(alphago_zero nlohmann_json::nlohmann_json  ${TORCH_LIBRARIES} ${OpenCV_LIBS} ${Protobuf_LIBRARIES} pthread)
 set_property(TARGET alphago_zero PROPERTY CXX_STANDARD 14)
 
 
