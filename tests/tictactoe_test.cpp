@@ -41,6 +41,8 @@ TEST(TTTSelfPlay, TestSelfPlayDataSet) {
     TicTacToe game;
     auto self_play = mcts_model_self_play<TicTacToe, TicTacToeModel>(game, model, model, 1, 10, 1., 1.);
     auto ds = SelfPlayDataset(std::vector<SelfPlayResult>{self_play}, 1, false);
+    ds.save("tmp/testds.bin");
+    ds.load("tmp/testds.bin");
     auto ex = ds.examples.back();
     ASSERT_EQ(" 1 -1 -1  1  1  1 -1 -1  1  1\n[ CPUFloatType{1,10} ]", to_string(ex.x));
     ASSERT_EQ(" 0  0\n[ CPUFloatType{1,2} ]", to_string(ex.state_value));

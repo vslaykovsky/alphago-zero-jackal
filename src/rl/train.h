@@ -64,6 +64,51 @@ public:
     };
 
     std::vector<Example> examples;
+
+    void save_tensor(torch::Tensor& t, std::ostream& os) {
+        std::ostringstream o(std::ios::out | std::ios::binary);
+        torch::save(t, o);
+        int32_t sz = o.str().size();
+        os.write((char*)&sz, 4);
+        os.write(o.str().c_str(), sz);
+    }
+
+    torch::Tensor load_tensor(std::istream& is) {
+        int32_t sz;
+        is.read((char*)&sz, 4);
+        std::unique_ptr<char[]> buf(new char[sz]);
+        is.read(buf.get(), sz);
+        std::istringstream i(std::string(buf.get(), buf.get() + sz));
+        torch::Tensor t;
+        torch::load(t, i);
+        return t;
+    }
+
+
+    void save(const std::string &fname) {
+        std::ofstream f(fname, std::ios::out | std::ios::binary);
+        int32_t size = examples.size();
+        f.write((char*)&size, 4);
+        for (auto &ex: examples) {
+            save_tensor(ex.x, f);
+            save_tensor(ex.action_proba, f);
+            save_tensor(ex.state_value, f);
+        }
+    }
+
+    void load(const std::string &fname) {
+        examples.clear();
+        std::ifstream f(fname, std::ios::in | std::ios::binary);
+        int32_t size;
+        f.read((char*)&size, 4);
+        for (int i = 0; i < size; ++i) {
+            Example ex;
+            ex.x = load_tensor(f);
+            ex.action_proba = load_tensor(f);
+            ex.state_value = load_tensor(f);
+            examples.push_back(ex);
+        }
+    }
 };
 
 
@@ -229,7 +274,7 @@ public:
     float simulate_and_train(
             TModel model,
             TModel random_model,
-            SelfPlayDataset  *eval_set,
+            SelfPlayDataset *eval_set,
             S gen_self_plays
     ) {
         using namespace std;
@@ -249,6 +294,7 @@ public:
                     true,
                     device
             );
+            ds.save("tmp/self_plays/epoch_" + to_string(rl_epoch) + ".bin");
             loss = train(model, ds, baseline_model, eval_set, step);
             logger.add_scalar("rl_epoch/train", step, (float) rl_epoch);
             time_t t1;
