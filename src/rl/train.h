@@ -15,6 +15,8 @@ public:
         torch::Tensor state_value;
     };
 
+    SelfPlayDataset() = default;
+
     explicit SelfPlayDataset(const std::vector<SelfPlayResult> &self_plays, int batch_size, bool shuffle = true,
                              torch::Device device = torch::kCPU,
                              bool only_terminal = false) {
@@ -185,7 +187,7 @@ public:
         static std::unordered_map<std::string, float> default_config = {
                 {"train_learning_rate",     1e-3},
                 {"train_l2_regularization", 1e-4},
-                {"train_replay_buffer",     1024},
+                {"train_replay_buffer",     1 >> 16},
                 {"train_epochs",            10},
                 {"train_batch_size",        32},
 
@@ -196,6 +198,7 @@ public:
                 {"simulation_max_turns",    1000},
 
                 {"mcts_iterations",         100},
+                {"mcts_iterations_first_cycle",         100},
                 {"mcts_exploration",        1.},
 
                 {"eval_size",               100},
@@ -283,8 +286,15 @@ public:
         time_t t;
         time(&t);
         float loss = 1e5;
+        auto mcts_iterations = config["mcts_iterations"];
+        auto mcts_iterations_first_cycle = config["mcts_iterations_first_cycle"];
         for (int rl_epoch = 0; rl_epoch < int(config["simulation_cycles"]); ++rl_epoch) {
             cout << "simulation_cycle: " << rl_epoch << endl;
+            if (rl_epoch == 0) {
+                config["mcts_iterations"] = mcts_iterations_first_cycle;
+            } else {
+                config["mcts_iterations"] = mcts_iterations;
+            }
             vector<SelfPlayResult> self_plays(gen_self_plays(model, config));
             SelfPlayDataset ds(
                     vector<SelfPlayResult>(

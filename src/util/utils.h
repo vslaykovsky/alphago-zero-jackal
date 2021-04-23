@@ -52,3 +52,6 @@ void set_high_thread_priority() ;
 
 
 std::default_random_engine& get_generator();
+
+std::unordered_map<std::string, float> load_config_from_string(const std::string& fname);
+std::unordered_map<std::string, float> load_config_from_file(const std::string& fname);

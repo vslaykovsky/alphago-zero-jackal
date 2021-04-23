@@ -1,4 +1,10 @@
 #include "utils.h"
+#include <nlohmann/json.hpp>
+
+using namespace std;
+
+using json = nlohmann::json;
+
 
 using namespace cv;
 using namespace std;
@@ -42,4 +48,22 @@ void set_high_thread_priority() {
     int status = pthread_setschedparam(main_id, SCHED_FIFO, &param);
     if (status != 0)
         perror("pthread_setschedparam");
+}
+
+
+
+std::unordered_map<std::string, float> load_config_from_string(const std::string& config) {
+    auto json_config = json::parse(config);
+    unordered_map<string, float> config_map;
+    for (json::iterator it = json_config.begin(); it != json_config.end(); ++it) {
+        config_map[it.key()] = it.value();
+    }
+    return config_map;
+}
+
+std::unordered_map<std::string, float> load_config_from_file(const std::string& fname) {
+    std::ifstream t(fname);
+    std::stringstream buffer;
+    buffer << t.rdbuf();
+    return load_config_from_string(buffer.str());
 }

@@ -201,16 +201,17 @@ jackal_train(const std::unordered_map<std::string, float> &config_map, int width
     std::unordered_map<std::string, float> default_config{
             {"train_learning_rate",     1e-4},
             {"train_l2_regularization", 0},
-            {"train_replay_buffer",     2048},
+            {"train_replay_buffer",     1 >> 16},
             {"train_epochs",            1},
-            {"train_batch_size",        32},
+            {"train_batch_size",        128},
 
-            {"simulation_cycle_games",  128},
+            {"simulation_cycle_games",  5000},
             {"simulation_cycles",       1000},
             {"simulation_temperature",  0.5},
             {"simulation_threads",      64},
             {"simulation_max_turns",    1000},
 
+            {"mcts_iterations_first_cycle", 1},
             {"mcts_iterations",         256},
             {"mcts_exploration",        2},
 

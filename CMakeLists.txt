@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
 set(CMAKE_VERBOSE_MAKEFILE ON)
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=leak -g -O1")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined -g -O1")
@@ -53,7 +53,17 @@ include_directories(third_party/tb_logger/include)
 #alphago_zero
 add_executable(alphago_zero src/alphago_zero.cpp ${SRCS})
 target_link_libraries(alphago_zero nlohmann_json::nlohmann_json  ${TORCH_LIBRARIES} ${OpenCV_LIBS} ${Protobuf_LIBRARIES} pthread)
-set_property(TARGET alphago_zero PROPERTY CXX_STANDARD 14)
+#set_property(TARGET alphago_zero PROPERTY CXX_STANDARD 14)
+
+#jackal_train
+add_executable(jackal_train src/jackal_train.cpp ${SRCS})
+target_link_libraries(jackal_train nlohmann_json::nlohmann_json  ${TORCH_LIBRARIES} ${OpenCV_LIBS} ${Protobuf_LIBRARIES} pthread)
+set_property(TARGET jackal_train PROPERTY CXX_STANDARD 17)
+
+#jackal_self_play
+add_executable(jackal_self_play src/jackal_self_play.cpp ${SRCS})
+target_link_libraries(jackal_self_play nlohmann_json::nlohmann_json  ${TORCH_LIBRARIES} ${OpenCV_LIBS} ${Protobuf_LIBRARIES} pthread)
+#set_property(TARGET jackal_self_play PROPERTY CXX_STANDARD 14)
 
 
 # testing

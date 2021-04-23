@@ -5,7 +5,6 @@
 #include "tictactoe/tictactoe_train.h"
 #include "jackal/jackal_train.h"
 #include <nlohmann/json.hpp>
-#include "util/utils.h"
 
 using namespace std;
 
@@ -23,9 +22,5 @@ int main(int argc, char *argv[]) {
     } else if (!strcmp(argv[2], "--config_file")) {
         config_map = load_config_from_file(argv[3]);
     }
-    if (std::string(argv[1]) == "tictactoe") {
-        cout << tictactoe_train(config_map) << endl;
-    } else {
-        cout << jackal_train(config_map) << endl;
-    }
+    multithreaded_self_plays(7, 7, 2, model, config);
 }
