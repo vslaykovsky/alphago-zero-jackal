@@ -7,7 +7,6 @@
 #include <torch/data/datasets/tensor.h>
 #include <torch/torch.h>
 #include "../mcts/mcts.h"
-#include "../tictactoe/tictactoe_model.h"
 #include "play.h"
 #include "../util/utils.h"
 
@@ -46,6 +45,11 @@ mcts_model_self_play(TGame game, F state_action_value_func, int mcts_steps, int 
         self_play_result.add_state(game.get_state(), state_action_value);
         int action = state_action_value.sample_action(temperature);
         game = game.take_action(action);
+        try {
+            auto image = game.get_image();
+            cv::imwrite("tmp/mcts_self_play/game" + std::to_string(game.turn) + ".png", image);
+        } catch (...) {
+        }
         if (verbose) {
             std::cout << game << std::endl;
         }

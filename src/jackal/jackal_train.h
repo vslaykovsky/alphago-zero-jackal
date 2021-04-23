@@ -10,6 +10,7 @@
 
 #include "jackal.h"
 #include "game_model.h"
+#include <filesystem>
 
 using namespace moodycamel;
 
@@ -153,7 +154,7 @@ std::vector<SelfPlayResult> multithreaded_self_plays(
     std::cout << "Running " << self_plays.size() << " simulations" << std::endl;
     for (auto &self_play : self_plays) {
         task_queue.enqueue(
-                std::make_unique<TTaskJob>(Jackal(height, width, players), model, config, self_play));
+                std::make_unique<TTaskJob>(Jackal(height, width, players, config.at("simulation_render") > 0), model, config, self_play));
     }
     std::atomic<bool> terminated(false);
     std::atomic<int> jobs_completed(0);
@@ -201,16 +202,17 @@ jackal_train(const std::unordered_map<std::string, float> &config_map, int width
     std::unordered_map<std::string, float> default_config{
             {"train_learning_rate",     1e-4},
             {"train_l2_regularization", 0},
-            {"train_replay_buffer",     2048},
+            {"train_replay_buffer",     1 >> 16},
             {"train_epochs",            1},
-            {"train_batch_size",        32},
+            {"train_batch_size",        128},
 
-            {"simulation_cycle_games",  128},
+            {"simulation_cycle_games",  5000},
             {"simulation_cycles",       1000},
             {"simulation_temperature",  0.5},
             {"simulation_threads",      64},
             {"simulation_max_turns",    1000},
 
+            {"mcts_iterations_first_cycle", 1},
             {"mcts_iterations",         256},
             {"mcts_exploration",        2},
 
@@ -239,4 +241,15 @@ jackal_train(const std::unordered_map<std::string, float> &config_map, int width
 
     torch::save(model, "models/jackal_model.pt");
     return result;
+}
+
+std::vector<std::string> get_selfplay_files(const std::string& dir) {
+    std::vector<std::string> selfplays;
+    for(auto& p: std::filesystem::directory_iterator(dir)) {
+        std::string s = p.path();
+        if (s.find("selfplay") != std::string::npos) {
+            selfplays.push_back(s);
+        }
+    }
+    return selfplays;
 }

@@ -6,11 +6,6 @@
 float tictactoe_train(std::unordered_map<std::string, float> config_map) {
     TicTacToeModel model;
     TicTacToeModel baseline_model;
-    /* hyperparams
-     * [I 2021-04-02 17:16:28,239] Trial 35 finished with value: 0.22 and parameters: {'train_learning_rate': 0.00012508178083968708, 'train_l2_regularization': 1.2820642389635053e-06, 'train_replay_buffer': 2048, 'train_epochs': 4, 'train_batch_size': 32, 'simulation_cycle_games': 64, 'simulation_temperature': 0.32326465799113663, 'mcts_iterations': 256, 'mcts_exploration': 2.0039111443673305}. Best is trial 35 with value: 0.22.
-        [I 2021-04-02 17:38:54,009] Trial 66 finished with value: 0.205 and parameters: {'train_learning_rate': 0.0002047946492294978, 'train_l2_regularization': 0.0025972880176404122, 'train_replay_buffer': 256, 'train_epochs': 128, 'train_batch_size': 16, 'simulation_cycle_games': 1024, 'simulation_temperature': 0.37983587789029916, 'mcts_iterations': 32, 'mcts_exploration': 1.82842579409991}. Best is trial 66 with value: 0.205.
-
-     */
 
     std::unordered_map<std::string, float> default_config{
             {"train_learning_rate",     0.00012508178083968708},
