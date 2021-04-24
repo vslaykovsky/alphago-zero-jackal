@@ -29,18 +29,22 @@ int main(int argc, char *argv[]) {
     JackalModel model(dims);
     auto model_path = dir + "/model.bin";
     if (experimental::filesystem::exists(model_path)) {
+        cout << "Loading model from " << model_path << endl;
         torch::load(model, model_path);
-        cout << "Loaded model from " << model_path << endl;
     }
     auto selfplay_files = get_selfplay_files(dir);
-    const string &selfplay_file = dir + "/selfplay_" + std::to_string(selfplay_files.size()) + ".bin";
-    cout << "Running selfplays and saving to " << selfplay_file << endl;
+    cout << "Running selfplays and saving to " << dir << endl;
     srand(123);
-    std::vector<SelfPlayResult> self_plays = multithreaded_self_plays((int) config["jackal_height"],
-                                                                      (int) config["jackal_width"],
-                                                                      (int) config["jackal_players"],
-                                                                      model,
-                                                                      config);
-    SelfPlayDataset ds(self_plays, (int) config["train_batch_size"]);
-    ds.save(selfplay_file);
+    if (selfplay_files.empty()) {
+        config["mcts_iterations"] = config["mcts_iterations_first_cycle"];
+    }
+    for (auto &kv: config) {
+        std::cout << "  " << kv.first << ": \t" << kv.second << std::endl;
+    }
+    multithreaded_self_plays(
+            dir,
+            (int) config["jackal_width"], (int) config["jackal_height"],
+            model,
+            config,
+            (int) config["jackal_players"]);
 }

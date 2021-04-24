@@ -26,6 +26,8 @@ public:
     int get_current_player_id() const;
 
     torch::Tensor get_state() const;
+
+    cv::Mat get_image() const;
 };
 
 std::ostream &operator<<(std::ostream &os, const TicTacToe &ttt);

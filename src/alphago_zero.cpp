@@ -14,18 +14,21 @@ using json = nlohmann::json;
 
 int main(int argc, char *argv[]) {
     if (argc < 4) {
-        cerr << "tictactoe_train game [--config json] [--config_file json_file]" << endl;
+        cerr << "alphago_zero game dir [--config json] [--config_file json_file]" << endl;
         exit(-1);
     }
+    int argi = 1;
+    std::string game = argv[argi++];
+    std::string dir = argv[argi++];
     unordered_map<string, float> config_map;
-    if (!strcmp(argv[2], "--config")) {
-        config_map = load_config_from_string(argv[3]);
-    } else if (!strcmp(argv[2], "--config_file")) {
-        config_map = load_config_from_file(argv[3]);
+    if (!strcmp(argv[argi], "--config")) {
+        config_map = load_config_from_string(argv[argi+1]);
+    } else if (!strcmp(argv[argi], "--config_file")) {
+        config_map = load_config_from_file(argv[argi+1]);
     }
-    if (std::string(argv[1]) == "tictactoe") {
-        cout << tictactoe_train(config_map) << endl;
+    if (game == "tictactoe") {
+        cout << tictactoe_train(dir, config_map) << endl;
     } else {
-        cout << jackal_train(config_map) << endl;
+        cout << jackal_train(dir, config_map) << endl;
     }
 }

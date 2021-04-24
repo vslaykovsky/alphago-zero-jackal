@@ -7,6 +7,7 @@
 #include <vector>
 #include <random>
 #include <memory>
+#include <tensorboard_logger.h>
 
 #include "../util/utils.h"
 
@@ -24,12 +25,9 @@ struct MCTSStateActionValue {
         for (auto &kv: action_proba) {
             values.push_back(pow(kv.second, 1 / temperature));
             actions.push_back(kv.first);
-
         }
         std::discrete_distribution<int> distribution(&values[0], &values[0] + values.size());
         int action_idx = distribution(get_generator());
-
-
         return actions[action_idx];
     }
 
@@ -45,6 +43,26 @@ struct MCTSStateActionValue {
             }
         }
         return actions[rand() % actions.size()];
+    }
+
+    void log(TensorBoardLogger *logger, int step, float temperature) {
+        std::vector<float> values;
+        float max_proba = 0;
+        float proba_sum = 0;
+        for (auto& kv: action_proba) {
+            float p = pow(kv.second, temperature);
+            values.push_back(p);
+            if (p > max_proba) {
+                max_proba = p;
+            }
+            proba_sum += p;
+        }
+        std::sort(values.begin(), values.end());
+        logger->add_histogram("mcts_action_dist", step, values);
+        logger->add_scalar("mcts_best_action_proba", step, max_proba / proba_sum);
+        logger->add_histogram("mcts_state_dist", step, state_value);
+        logger->add_scalar("mcts_first_player_value", step, state_value[0]);
+        logger->add_scalar("mcts_second_player_value", step, state_value[1]);
     }
 };
 

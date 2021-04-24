@@ -221,8 +221,12 @@ MCTSStateValue Jackal::get_reward() {
             max_player = i;
         }
     }
-    for (int i = 0; i < players.size(); ++i) {
-        reward.push_back(max_player == i ? 1 : -1);
+    reward.resize(players.size());
+    if (max_score > 0) {
+        // we have a winner
+        for (int i = 0; i < players.size(); ++i) {
+            reward[i] = max_player == i ? 1 : -1;
+        }
     }
     return reward;
 }

@@ -9,7 +9,7 @@
   "train_epochs": 1,
   "train_batch_size": 128,
 
-  "simulation_cycle_games": 500,
+  "simulation_cycle_games": 5000,
   "simulation_cycles": 1000,
   "simulation_temperature": 0.5,
   "simulation_threads": 64,

@@ -37,10 +37,12 @@ int main(int argc, char *argv[]) {
     if (filesystem::exists(model_path)) {
         torch::load(model, model_path);
     }
-    auto selfplay_file = get_selfplay_files(dir);
-    SelfPlayDataset ds;
-    ds.load(selfplay_file.back());
+    auto selfplay_files = get_selfplay_files(dir);
     Trainer<Jackal, JackalModel> trainer(config, torch::kCUDA);
-    auto loss = trainer.train(model, ds, baseline_model, nullptr, step);
+    SelfPlayDataset ds;
+    if (!selfplay_files.empty()) {
+        ds.load(selfplay_files.back());
+        auto loss = trainer.train(model, ds, baseline_model, nullptr, step);
+    }
     torch::save(model, model_path);
 }

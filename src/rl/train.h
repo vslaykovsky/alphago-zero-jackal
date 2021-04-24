@@ -5,6 +5,20 @@
 #include "../../third_party/tb_logger/include/tensorboard_logger.h"
 #include <experimental/filesystem>
 #include <utility>
+#include <filesystem>
+
+
+
+inline std::vector<std::string> get_selfplay_files(const std::string &dir) {
+    std::vector<std::string> selfplays;
+    for (auto &p: std::filesystem::directory_iterator(dir)) {
+        std::string s = p.path();
+        if (s.find("selfplay") != std::string::npos) {
+            selfplays.push_back(s);
+        }
+    }
+    return selfplays;
+}
 
 class SelfPlayDataset {
 public:
@@ -86,6 +100,12 @@ public:
         return t;
     }
 
+
+    void save_to_dir(const std::string &dir) {
+        auto selfplay_files = get_selfplay_files(dir);
+        const std::string &selfplay_file = dir + "/selfplay_" + std::to_string(selfplay_files.size()) + ".bin";
+        save(selfplay_file);
+    }
 
     void save(const std::string &fname) {
         std::ofstream f(fname, std::ios::out | std::ios::binary);
@@ -217,7 +237,7 @@ public:
         }
         for (auto &kv: config) {
             if (default_config.find(kv.first) == default_config.end()) {
-                throw std::runtime_error("Invalid option " + kv.first);
+                std::cout <<"Unknown option " << kv.first << std::endl;
             }
         }
     }
@@ -275,6 +295,7 @@ public:
 
     template<class S>
     float simulate_and_train(
+            const std::string& dir,
             TModel model,
             TModel random_model,
             SelfPlayDataset *eval_set,
@@ -295,16 +316,9 @@ public:
             } else {
                 config["mcts_iterations"] = mcts_iterations;
             }
-            vector<SelfPlayResult> self_plays(gen_self_plays(model, config));
-            SelfPlayDataset ds(
-                    vector<SelfPlayResult>(
-                            self_plays.end() - min((int) self_plays.size(), int(config["train_replay_buffer"])),
-                            self_plays.end()),
-                    int(config["train_batch_size"]),
-                    true,
-                    device
-            );
-            ds.save("tmp/self_plays/epoch_" + to_string(rl_epoch) + ".bin");
+            gen_self_plays(dir, model, config);
+            SelfPlayDataset ds;
+            ds.load(get_selfplay_files(dir).back()); // todo refactor train
             loss = train(model, ds, baseline_model, eval_set, step);
             logger.add_scalar("rl_epoch/train", step, (float) rl_epoch);
             time_t t1;

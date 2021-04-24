@@ -3,7 +3,7 @@
 #include "tictactoe_model.h"
 #include "../rl/train.h"
 
-float tictactoe_train(std::unordered_map<std::string, float> config_map) {
+float tictactoe_train(const string& dir, std::unordered_map<std::string, float> config_map) {
     TicTacToeModel model;
     TicTacToeModel baseline_model;
 
@@ -30,6 +30,7 @@ float tictactoe_train(std::unordered_map<std::string, float> config_map) {
 
     Trainer<TicTacToe, TicTacToeModel> trainer(config_map);
     auto result = trainer.simulate_and_train(
+            dir,
             model,
             baseline_model,
             nullptr,
@@ -57,7 +58,6 @@ float tictactoe_train(std::unordered_map<std::string, float> config_map) {
                 return self_plays;
             }
     );
-
-    torch::save(model, "models/tictactoe_model.pt");
+    torch::save(model, dir + "/tictactoe_model.pt");
     return result;
 }

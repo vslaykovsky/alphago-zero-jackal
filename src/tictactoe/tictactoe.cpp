@@ -119,6 +119,10 @@ torch::Tensor TicTacToe::get_state() const {
     return torch::from_blob(&v[0], {(int) v.size()}, torch::kFloat).unsqueeze(0).clone();
 }
 
+cv::Mat TicTacToe::get_image() const {
+    throw std::runtime_error("not supported");
+}
+
 
 std::ostream &operator<<(std::ostream &os, const TicTacToe &ttt) {
     for (auto &row : ttt.field) {

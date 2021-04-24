@@ -278,6 +278,7 @@ int TensorBoardLogger::add_embedding(const std::string &tensor_name,
 }
 
 int TensorBoardLogger::add_event(int64_t step, Summary *summary) {
+    std::lock_guard g(mtx);
     Event event;
     double wall_time = time(nullptr);
     event.set_wall_time(wall_time);

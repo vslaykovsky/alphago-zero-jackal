@@ -20,6 +20,7 @@ const std::string kProjectorPluginName = "projector";
 const std::string kTextPluginName = "text";
 
 class TensorBoardLogger {
+    std::mutex mtx;
    public:
     explicit TensorBoardLogger(const char *log_file) {
         bucket_limits_ = nullptr;

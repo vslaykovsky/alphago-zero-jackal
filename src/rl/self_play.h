@@ -6,6 +6,7 @@
 #include <ATen/Tensor.h>
 #include <torch/data/datasets/tensor.h>
 #include <torch/torch.h>
+#include <tensorboard_logger.h>
 #include "../mcts/mcts.h"
 #include "play.h"
 #include "../util/utils.h"
@@ -30,7 +31,8 @@ struct SelfPlayResult {
 template<class TGame, class F>
 SelfPlayResult
 mcts_model_self_play(TGame game, F state_action_value_func, int mcts_steps, int max_turns, float temperature,
-                     float exploration, std::atomic<int> *turns = nullptr, bool verbose = false) {
+                     float exploration, std::atomic<int> *turns = nullptr, TensorBoardLogger *logger = nullptr,
+                     bool verbose = false) {
     torch::NoGradGuard no_grad;
     SelfPlayResult self_play_result;
     MCTSStateActionValue state_action_value;
@@ -42,6 +44,9 @@ mcts_model_self_play(TGame game, F state_action_value_func, int mcts_steps, int 
                 mcts_steps,
                 exploration
         );
+        if (logger) {
+            state_action_value.log(logger, turn, temperature);
+        }
         self_play_result.add_state(game.get_state(), state_action_value);
         int action = state_action_value.sample_action(temperature);
         game = game.take_action(action);
@@ -68,7 +73,9 @@ mcts_model_self_play(TGame game, F state_action_value_func, int mcts_steps, int 
 template<class TGame, class TModel>
 SelfPlayResult
 mcts_model_self_play(TGame game, TModel model1, TModel model2, int mcts_steps, int max_turns, float temperature,
-                     float exploration, std::atomic<int> *turns = nullptr, torch::Device device=torch::kCPU, bool verbose = false) {
+                     float exploration, std::atomic<int> *turns = nullptr, torch::Device device = torch::kCPU,
+                     TensorBoardLogger *logger = nullptr,
+                     bool verbose = false) {
     model1->to(device);
     model2->to(device);
     return mcts_model_self_play(game, [&model1, &model2, &device](const TGame &game) {
@@ -82,7 +89,7 @@ mcts_model_self_play(TGame game, TModel model1, TModel model2, int mcts_steps, i
             gmo = model2(game.get_state().to(device));
         }
         return to_state_action_value(gmo, game);
-    }, mcts_steps, max_turns, temperature, exploration, turns, verbose);
+    }, mcts_steps, max_turns, temperature, exploration, turns, logger, verbose);
 }
 
 template<class TGame, class TModel>
@@ -119,7 +126,7 @@ TGame random_self_play() {
     TGame game;
     while (true) {
         const std::vector<int> &actions = game.get_possible_actions();
-        if (actions.empty()){
+        if (actions.empty()) {
             break;
         }
         int action = actions[rand() % actions.size()];

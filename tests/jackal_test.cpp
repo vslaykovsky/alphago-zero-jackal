@@ -80,10 +80,11 @@ TEST(JackalTest, FullTrainingCycle) {
     JackalModel rnd_model;
     Trainer<Jackal, JackalModel> trainer(config);
     auto result = trainer.simulate_and_train(
+            "tmp/test",
             model,
             rnd_model,
             nullptr,
-            [](JackalModel &model, unordered_map<string, float> &config) {
+            [](const std::string& dir, JackalModel &model, unordered_map<string, float> &config) {
                 vector<SelfPlayResult> results;
                 for (int i = 0; i < int(config["simulation_cycle_games"]); ++i) {
                     Jackal game;
