@@ -22,27 +22,20 @@ int main(int argc, char *argv[]) {
     int argi = 1;
     string dir = argv[argi++];
     if (!strcmp(argv[argi], "--config")) {
-        config = load_config_from_string(argv[argi+1]);
+        config = load_config_from_string(argv[argi + 1]);
     } else if (!strcmp(argv[argi], "--config_file")) {
-        config = load_config_from_file(argv[argi+1]);
+        config = load_config_from_file(argv[argi + 1]);
     }
 
-    Jackal jackal((int)config["jackal_height"], (int)config["jackal_width"], (int)config["jackal_players"]);
+    Jackal jackal((int) config["jackal_height"], (int) config["jackal_width"], (int) config["jackal_players"]);
     auto dims = jackal.get_state().sizes();
     JackalModel model(dims);
     JackalModel baseline_model(dims);
     int step;
 
-    auto model_path = dir + "/model.bin";
-    if (filesystem::exists(model_path)) {
-        torch::load(model, model_path);
-    }
-    auto selfplay_files = get_selfplay_files(dir);
+
     Trainer<Jackal, JackalModel> trainer(config, torch::kCUDA);
-    SelfPlayDataset ds;
-    if (!selfplay_files.empty()) {
-        ds.load(selfplay_files.back());
-        auto loss = trainer.train(model, ds, baseline_model, nullptr, step);
-    }
-    torch::save(model, model_path);
+
+    auto loss = trainer.train(dir, nullptr, step);
+
 }

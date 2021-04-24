@@ -3,7 +3,7 @@
   "jackal_height": 7,
   "jackal_players": 2,
 
-  "train_learning_rate": 1e-5,
+  "train_learning_rate": 1e-6,
   "train_l2_regularization": 0,
   "train_replay_buffer": 10000,
   "train_epochs": 1,

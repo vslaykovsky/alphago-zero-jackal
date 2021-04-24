@@ -8,7 +8,6 @@
 #include <filesystem>
 
 
-
 inline std::vector<std::string> get_selfplay_files(const std::string &dir) {
     std::vector<std::string> selfplays;
     for (auto &p: std::filesystem::directory_iterator(dir)) {
@@ -21,6 +20,7 @@ inline std::vector<std::string> get_selfplay_files(const std::string &dir) {
 }
 
 class SelfPlayDataset {
+    torch::Device device;
 public:
 
     struct Example {
@@ -31,9 +31,11 @@ public:
 
     SelfPlayDataset() = default;
 
+    explicit SelfPlayDataset(torch::Device device = torch::kCPU) : device(device){}
+
     explicit SelfPlayDataset(const std::vector<SelfPlayResult> &self_plays, int batch_size, bool shuffle = true,
                              torch::Device device = torch::kCPU,
-                             bool only_terminal = false) {
+                             bool only_terminal = false):device(device) {
         std::vector<Example> items;
         for (auto &self_play: self_plays) {
             int from_i = 0;
@@ -81,17 +83,17 @@ public:
 
     std::vector<Example> examples;
 
-    void save_tensor(torch::Tensor& t, std::ostream& os) {
+    void save_tensor(torch::Tensor &t, std::ostream &os) {
         std::ostringstream o(std::ios::out | std::ios::binary);
         torch::save(t, o);
         int32_t sz = o.str().size();
-        os.write((char*)&sz, 4);
+        os.write((char *) &sz, 4);
         os.write(o.str().c_str(), sz);
     }
 
-    torch::Tensor load_tensor(std::istream& is) {
+    torch::Tensor load_tensor(std::istream &is) {
         int32_t sz;
-        is.read((char*)&sz, 4);
+        is.read((char *) &sz, 4);
         std::unique_ptr<char[]> buf(new char[sz]);
         is.read(buf.get(), sz);
         std::istringstream i(std::string(buf.get(), buf.get() + sz));
@@ -110,7 +112,7 @@ public:
     void save(const std::string &fname) {
         std::ofstream f(fname, std::ios::out | std::ios::binary);
         int32_t size = examples.size();
-        f.write((char*)&size, 4);
+        f.write((char *) &size, 4);
         for (auto &ex: examples) {
             save_tensor(ex.x, f);
             save_tensor(ex.action_proba, f);
@@ -122,12 +124,12 @@ public:
         examples.clear();
         std::ifstream f(fname, std::ios::in | std::ios::binary);
         int32_t size;
-        f.read((char*)&size, 4);
+        f.read((char *) &size, 4);
         for (int i = 0; i < size; ++i) {
             Example ex;
-            ex.x = load_tensor(f);
-            ex.action_proba = load_tensor(f);
-            ex.state_value = load_tensor(f);
+            ex.x = load_tensor(f).to(device);
+            ex.action_proba = load_tensor(f).to(device);
+            ex.state_value = load_tensor(f).to(device);
             examples.push_back(ex);
         }
     }
@@ -205,26 +207,26 @@ public:
             device(device),
             config(std::move(pconfig)) {
         static std::unordered_map<std::string, float> default_config = {
-                {"train_learning_rate",     1e-3},
-                {"train_l2_regularization", 1e-4},
-                {"train_replay_buffer",     1 >> 16},
-                {"train_epochs",            10},
-                {"train_batch_size",        32},
+                {"train_learning_rate",         1e-3},
+                {"train_l2_regularization",     1e-4},
+                {"train_replay_buffer",         1 >> 16},
+                {"train_epochs",                10},
+                {"train_batch_size",            32},
 
-                {"simulation_cycles",       10},
-                {"simulation_cycle_games",  256},
-                {"simulation_temperature",  1.},
-                {"simulation_threads",      1},
-                {"simulation_max_turns",    1000},
+                {"simulation_cycles",           10},
+                {"simulation_cycle_games",      256},
+                {"simulation_temperature",      1.},
+                {"simulation_threads",          1},
+                {"simulation_max_turns",        1000},
 
-                {"mcts_iterations",         100},
-                {"mcts_iterations_first_cycle",         100},
-                {"mcts_exploration",        1.},
+                {"mcts_iterations",             100},
+                {"mcts_iterations_first_cycle", 100},
+                {"mcts_exploration",            1.},
 
-                {"eval_size",               100},
-                {"eval_temperature",        1.},
+                {"eval_size",                   100},
+                {"eval_temperature",            1.},
 
-                {"timeout",                 300}
+                {"timeout",                     300}
         };
         for (auto &kv: default_config) {
             if (config.find(kv.first) == config.end()) {
@@ -237,16 +239,23 @@ public:
         }
         for (auto &kv: config) {
             if (default_config.find(kv.first) == default_config.end()) {
-                std::cout <<"Unknown option " << kv.first << std::endl;
+                std::cout << "Unknown option " << kv.first << std::endl;
             }
         }
     }
 
-    float train(TModel model,
-                const SelfPlayDataset &ds,
-                TModel baseline_model,
+    float train(const std::string &dir,
                 SelfPlayDataset *eval_set,
                 int &step) {
+        TModel model;
+        TModel baseline_model;
+        auto model_path = dir + "/model.bin";
+        if (std::filesystem::exists(model_path)) {
+            torch::load(model, model_path);
+            torch::load(baseline_model, model_path);
+        }
+
+
         using namespace std;
         cout << "running " << int(config["train_epochs"]) << " training epochs" << endl;
         using namespace std;
@@ -258,44 +267,52 @@ public:
         time_t t;
         time(&t);
         float benchmark_loss = 1e5;
+
         for (int epoch = 0; epoch < int(config["train_epochs"]); ++epoch) {
-            std::cout << "train_epoch: " << epoch << std::endl;
-            float train_loss = 0;
-            for (int i = 0; i < ds.size(); ++i, ++step) {
-                optimizer.zero_grad();
-                const auto &example = ds.get(i);
-                const auto &output = model(example.x.to(device));
-                auto policy_loss = torch::nll_loss(output.policy, example.action_proba);
-                auto state_value_loss = torch::mse_loss(output.value, example.state_value);
-                auto loss = policy_loss + state_value_loss;
-                loss.backward();
-                train_loss += loss.item().toDouble();
-                optimizer.step();
-                logger.add_scalar("loss/train", step, loss.item().toDouble());
-                logger.add_scalar("state-value-loss/train", step, state_value_loss.item().toDouble());
-                logger.add_scalar("policy-loss/train", step, policy_loss.item().toDouble());
-            }
-            train_loss /= (float) ds.size();
-            cout << "epoch:" << epoch << " train_loss:" << train_loss << endl;
-            benchmark_loss = compare_models<TGame, TModel>(model, baseline_model, int(config["eval_size"]),
-                                                           config["eval_temperature"], 1.);
-            logger.add_scalar("benchmark-loss/eval", step, benchmark_loss);
-            if (eval_set != nullptr) {
-                logger.add_scalar("state-value-loss/eval", step, evaluate<TModel>(model, *eval_set));
-            }
-            logger.add_scalar("epoch/train", step, (float) epoch);
-            time_t t1;
-            time(&t1);
-            if (t1 - t > (int) config["timeout"]) {
-                break;
+            auto selfplay_files = get_selfplay_files(dir);
+            for (auto selfplay_file : selfplay_files) {
+                std::cout << "train_epoch: " << epoch << std::endl;
+                SelfPlayDataset ds(device);
+                ds.load(selfplay_files.back());
+
+                float train_loss = 0;
+                for (int i = 0; i < ds.size(); ++i, ++step) {
+                    optimizer.zero_grad();
+                    const auto &example = ds.get(i);
+                    const auto &output = model(example.x.to(device));
+                    auto policy_loss = torch::nll_loss(output.policy, example.action_proba);
+                    auto state_value_loss = torch::mse_loss(output.value, example.state_value);
+                    auto loss = policy_loss + state_value_loss;
+                    loss.backward();
+                    train_loss += loss.item().toDouble();
+                    optimizer.step();
+                    logger.add_scalar("loss/train", step, loss.item().toDouble());
+                    logger.add_scalar("state-value-loss/train", step, state_value_loss.item().toDouble());
+                    logger.add_scalar("policy-loss/train", step, policy_loss.item().toDouble());
+                }
+                train_loss /= (float) ds.size();
+                cout << "epoch:" << epoch << " train_loss:" << train_loss << endl;
+                benchmark_loss = compare_models<TGame, TModel>(model, baseline_model, int(config["eval_size"]),
+                                                               config["eval_temperature"], 1.);
+                logger.add_scalar("benchmark-loss/eval", step, benchmark_loss);
+                if (eval_set != nullptr) {
+                    logger.add_scalar("state-value-loss/eval", step, evaluate<TModel>(model, *eval_set));
+                }
+                logger.add_scalar("epoch/train", step, (float) epoch);
+                time_t t1;
+                time(&t1);
+                if (t1 - t > (int) config["timeout"]) {
+                    break;
+                }
             }
         }
+        torch::save(model, model_path);
         return benchmark_loss;
     }
 
     template<class S>
     float simulate_and_train(
-            const std::string& dir,
+            const std::string &dir,
             TModel model,
             TModel random_model,
             SelfPlayDataset *eval_set,
@@ -317,9 +334,9 @@ public:
                 config["mcts_iterations"] = mcts_iterations;
             }
             gen_self_plays(dir, model, config);
-            SelfPlayDataset ds;
+            SelfPlayDataset ds(device);
             ds.load(get_selfplay_files(dir).back()); // todo refactor train
-            loss = train(model, ds, baseline_model, eval_set, step);
+            loss = train(dir, eval_set, step);
             logger.add_scalar("rl_epoch/train", step, (float) rl_epoch);
             time_t t1;
             time(&t1);
