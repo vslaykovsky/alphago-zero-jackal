@@ -140,6 +140,20 @@ void model_loop(JackalModel model, TModelQueue *queue, std::atomic<bool> *termin
     }
 }
 
+int persist_completed_selfplays(const std::string& dir, std::vector<SelfPlayResult>& selfplays, int batch_size) {
+    std::vector<SelfPlayResult> tmp_results;
+    int jobs_persisted = 0;
+    for (auto &self_play : selfplays) {
+        if (!self_play.states.empty()) {
+            tmp_results.push_back(std::move(self_play));
+            jobs_persisted++;
+        }
+    }
+    SelfPlayDataset ds(tmp_results, batch_size);
+    ds.save_to_dir(dir);
+    return jobs_persisted;
+}
+
 void multithreaded_self_plays(const std::string &dir, int width, int height, JackalModel &model,
                               const std::unordered_map<std::string, float> &config, int players) {
     using namespace std;
@@ -175,18 +189,11 @@ void multithreaded_self_plays(const std::string &dir, int width, int height, Jac
         cout << "Simulations completed: " << jobs_completed << ". Total turns:" << turns << ". Total requests served: "
              << total_requests << ". Requests per second: " << (total_requests - prev_requests) << endl;
         if (jobs_completed - jobs_persisted >= 1000) {
-            vector<SelfPlayResult> tmp_results;
-            for (auto &self_play : self_plays) {
-                if (!self_play.states.empty()) {
-                    tmp_results.push_back(std::move(self_play));
-                    jobs_persisted++;
-                }
-            }
-            SelfPlayDataset ds(tmp_results, (int) config.at("train_batch_size"));
-            ds.save_to_dir(dir);
+            persist_completed_selfplays(dir, self_plays, (int) config.at("train_batch_size"));
         }
         prev_requests = total_requests;
     }
+    persist_completed_selfplays(dir, self_plays, (int) config.at("train_batch_size"));
     terminated = true;
     for (auto &t: sim_threads) {
         t.join();
