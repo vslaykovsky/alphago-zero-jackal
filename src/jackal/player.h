@@ -19,6 +19,7 @@ enum PlayerPlanes {
 class Player : public GameElement {
 public:
     int player_idx;
+    mutable std::shared_ptr<std::unordered_map<Action, std::unordered_set<Action>>> actions_cache;
 
     explicit Player(int player_idx);
 

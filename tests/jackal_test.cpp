@@ -30,7 +30,7 @@ TEST(JackalTest, RandomSelfPlayRender) {
 TEST(JackalTest, RandomSelfPlayPerformance) {
     TestGuard g;
 
-    Jackal jackal(7, 7, 2, false, false);
+    Jackal jackal(12, 12, 2, false, false);
     auto t1 = clock();
     while (jackal.turn < 10000 && !jackal.is_terminal()) {
         jackal = jackal.take_action(jackal.get_random_action());

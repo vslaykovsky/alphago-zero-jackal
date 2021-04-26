@@ -8,7 +8,8 @@ Player::Player(int player_idx) : player_idx(player_idx) {
 
 Player::Player(int player_idx, int w, int h, bool render, bool debug) :
         GameElement(torch::zeros({PLAYER_PLANES_NUMBER, h, w}), render, debug),
-        player_idx(player_idx) {
+        player_idx(player_idx),
+        actions_cache(new std::unordered_map<Action, std::unordered_set<Action>>()) {
     Coords coords = std::vector<Coords>{
             {0,           height() / 2},
             {width() - 1, height() / 2},
@@ -148,10 +149,16 @@ void collect_destinations(
 }
 
 std::unordered_set<Action> Player::get_pirate_actions(const Coords &c, const Ground &ground) const {
-    std::unordered_set<Action> actions;
-    std::unordered_set<Coords> visited;
-    collect_destinations(c, c, 1, get_ship_coords(), visited, actions, ground);
-    return actions;
+    Action a(c, Coords(), ground.get_gold(c.x, c.y) > 0);
+    if (actions_cache->find(a) != actions_cache->end()) {
+        return (*actions_cache)[a];
+    } else {
+        std::unordered_set<Action> actions;
+        std::unordered_set<Coords> visited;
+        collect_destinations(c, c, 1, get_ship_coords(), visited, actions, ground);
+        (*actions_cache)[a] = actions;
+        return actions;
+    }
 }
 
 std::unordered_set<Action> Player::get_ship_actions() const {
