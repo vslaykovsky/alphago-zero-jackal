@@ -34,7 +34,9 @@ int main(int argc, char *argv[]) {
     }
     auto selfplay_files = get_selfplay_files(dir);
     cout << "Running selfplays and saving to " << dir << endl;
-    srand(123);
+    time_t tm;
+    time(&tm);
+    srand(tm);
     if (selfplay_files.empty()) {
         config["mcts_iterations"] = config["mcts_iterations_first_cycle"];
     }
