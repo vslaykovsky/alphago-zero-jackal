@@ -52,8 +52,12 @@ Jackal Jackal::take_action(const Action &action) const {
                 // gold to the ship
                 player.inc_score();
                 j.ground.remove_gold(action.coordinates_from);
-            } else {
+            } else if (ground.is_ground(action.coordinates_to.x, action.coordinates_to.y)) {
+                // ground
                 j.ground.move_gold(action.coordinates_from, action.coordinates_to);
+            } else {
+                // water
+                j.ground.remove_gold(action.coordinates_from);
             }
         }
 
