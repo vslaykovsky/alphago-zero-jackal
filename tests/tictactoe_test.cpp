@@ -70,9 +70,10 @@ TEST(TTTSelfPlay, FullTrainingCycle) {
                                                            {"train_epochs",        10},
                                                            {"train_batch_size",    32}
                                                    });
-        trainer.train(model, train_ds, random_model, &eval_ds, step);
-        float trained_loss = evaluate<TicTacToeModel>(model, eval_ds);
-        float random_loss = evaluate<TicTacToeModel>(random_model, eval_ds);
+        string dir = "tmp/test";
+        trainer.train(dir, &eval_ds, step);
+        float trained_loss = evaluate<TicTacToeModel>(model, dir, 1.);
+        float random_loss = evaluate<TicTacToeModel>(random_model, dir, 1.);
         cerr << "trained_loss " << trained_loss << " random_loss " << random_loss << endl;
         ASSERT_LT(trained_loss, random_loss);
         ASSERT_LT(trained_loss, 0.5); // must fit well

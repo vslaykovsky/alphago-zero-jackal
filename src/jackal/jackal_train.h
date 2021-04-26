@@ -144,7 +144,7 @@ int persist_completed_selfplays(const std::string& dir, std::vector<SelfPlayResu
     std::vector<SelfPlayResult> tmp_results;
     int jobs_persisted = 0;
     for (auto &self_play : selfplays) {
-        if (!self_play.states.empty()) {
+        if (!self_play.states.empty() && abs(self_play.self_play_reward[0]) > 1e-5) {
             tmp_results.push_back(std::move(self_play));
             jobs_persisted++;
         }
@@ -188,8 +188,9 @@ void multithreaded_self_plays(const std::string &dir, int width, int height, Jac
         sleep(1);
         cout << "Simulations completed: " << jobs_completed << ". Total turns:" << turns << ". Total requests served: "
              << total_requests << ". Requests per second: " << (total_requests - prev_requests) << endl;
-        if (jobs_completed - jobs_persisted >= 1000) {
+        if (jobs_completed - jobs_persisted >= 100) {
             persist_completed_selfplays(dir, self_plays, (int) config.at("train_batch_size"));
+            jobs_persisted = jobs_completed;
         }
         prev_requests = total_requests;
     }

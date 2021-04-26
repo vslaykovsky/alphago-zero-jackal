@@ -29,13 +29,12 @@ public:
         torch::Tensor state_value;
     };
 
-    SelfPlayDataset() = default;
 
-    explicit SelfPlayDataset(torch::Device device = torch::kCPU) : device(device){}
+    explicit SelfPlayDataset(torch::Device device = torch::kCPU) : device(device) {}
 
     explicit SelfPlayDataset(const std::vector<SelfPlayResult> &self_plays, int batch_size, bool shuffle = true,
                              torch::Device device = torch::kCPU,
-                             bool only_terminal = false):device(device) {
+                             bool only_terminal = false) : device(device) {
         std::vector<Example> items;
         for (auto &self_play: self_plays) {
             int from_i = 0;
@@ -137,18 +136,27 @@ public:
 
 
 template<class TModel>
-float evaluate(TModel model, const SelfPlayDataset &ds) {
+float evaluate(TModel model, const std::string &dir, float sampling, torch::Device device=torch::kCPU) {
     model->eval();
     torch::NoGradGuard no_grad;
 
+    auto selfplay_files = get_selfplay_files(dir);
     float loss = 0.;
-    for (int i = 0; i < ds.size(); ++i) {
-        auto sample = ds.get(i);
-        auto y = model(sample.x);
-        auto target = sample.state_value;
-        loss = loss + torch::mse_loss(y.value, target).item().toDouble();
+    int total = 0;
+    for (auto selfplay_file : selfplay_files) {
+        std::cout << "Eval file: " << selfplay_file << std::endl;
+        SelfPlayDataset ds(device);
+        ds.load(selfplay_file);
+        for (int i = 0; i < ds.size() * sampling; ++i) {
+            auto sample = ds.get(i);
+            auto y = model(sample.x);
+            auto target = sample.state_value;
+            loss = loss + torch::mse_loss(y.value, target).item().toDouble();
+            total ++;
+        }
     }
-    return loss / ds.size();
+    return loss / total;
+
 }
 
 
@@ -268,15 +276,24 @@ public:
         time(&t);
         float benchmark_loss = 1e5;
 
+        logger.add_scalar("state-value-loss/eval", 0,
+                          evaluate<TModel>(model,
+                                           dir + "/eval",
+                                           config["train_replay_sampling_rate"],
+                                           device));
+
         for (int epoch = 0; epoch < int(config["train_epochs"]); ++epoch) {
-            auto selfplay_files = get_selfplay_files(dir);
-            for (auto selfplay_file : selfplay_files) {
-                std::cout << "train_epoch: " << epoch << std::endl;
+            auto selfplay_files = get_selfplay_files(dir + "/train");
+            for (int spf = 0; spf < selfplay_files.size(); spf++) {
+                auto selfplay_file = selfplay_files[spf];
+                std::cout << "train_epoch: " << epoch << " train file:" << selfplay_file << std::endl;
                 SelfPlayDataset ds(device);
                 ds.load(selfplay_files.back());
 
                 float train_loss = 0;
-                for (int i = 0; i < ds.size(); ++i, ++step) {
+                for (int i = 0; i < (int) (ds.size()); ++i, ++step) {
+                    if (rand01() > config["train_replay_sampling_rate"])
+                        continue;
                     optimizer.zero_grad();
                     const auto &example = ds.get(i);
                     const auto &output = model(example.x.to(device));
@@ -295,8 +312,13 @@ public:
                 benchmark_loss = compare_models<TGame, TModel>(model, baseline_model, int(config["eval_size"]),
                                                                config["eval_temperature"], 1.);
                 logger.add_scalar("benchmark-loss/eval", step, benchmark_loss);
-                if (eval_set != nullptr) {
-                    logger.add_scalar("state-value-loss/eval", step, evaluate<TModel>(model, *eval_set));
+                if (spf % max(1, int(selfplay_files.size() / 10)) == 0) {
+                    logger.add_scalar("state-value-loss/eval", step,
+                                      evaluate<TModel>(model,
+                                                       dir + "/eval",
+                                                       config["train_replay_sampling_rate"],
+                                                       device)
+                    );
                 }
                 logger.add_scalar("epoch/train", step, (float) epoch);
                 time_t t1;

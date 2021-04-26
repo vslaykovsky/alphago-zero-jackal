@@ -42,7 +42,9 @@ mcts_model_self_play(TGame game, F state_action_value_func, int mcts_steps, int 
                 game,
                 state_action_value_func,
                 mcts_steps,
-                exploration
+                exploration,
+                logger,
+                turn
         );
         if (logger) {
             state_action_value.log(logger, turn, temperature);

@@ -27,7 +27,9 @@ TEST(SPDS, TestSelfPlayDataSet) {
 
 TEST(SPDS, AnalyzeSPDS) {
     SelfPlayDataset ds;
-    auto fname = "tmp/jackal/selfplay_0.bin";
+    auto fname = "tmp/jackal/epoch1/selfplay_0.bin";
+    int nonz = 0;
+    int total = 0;
     if (filesystem::exists(fname)) {
         ds.load(fname);
         for (int i =0 ; i < ds.examples.size(); ++i) {
@@ -35,6 +37,9 @@ TEST(SPDS, AnalyzeSPDS) {
             cout << "batch " << i << endl;
             cout << ex.action_proba << endl;
             cout << ex.state_value << endl;
+            nonz += torch::count_nonzero(ex.state_value).item().toInt();
+            total += ex.state_value.numel();
         }
+        cout << float(nonz) / total << endl;
     }
 }
