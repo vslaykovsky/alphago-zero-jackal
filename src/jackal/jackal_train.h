@@ -143,14 +143,21 @@ void model_loop(JackalModel model, TModelQueue *queue, std::atomic<bool> *termin
 int persist_completed_selfplays(const std::string& dir, std::vector<SelfPlayResult>& selfplays, int batch_size) {
     std::vector<SelfPlayResult> tmp_results;
     int jobs_persisted = 0;
+    int jobs_found = 0;
     for (auto &self_play : selfplays) {
-        if (!self_play.states.empty() && abs(self_play.self_play_reward[0]) > 1e-5) {
-            tmp_results.push_back(std::move(self_play));
-            jobs_persisted++;
+        if (!self_play.states.empty()) {
+            jobs_found ++;
+            if (abs(self_play.self_play_reward[0]) > 1e-5) {
+                tmp_results.push_back(std::move(self_play));
+                jobs_persisted++;
+            } else {
+                self_play = SelfPlayResult();
+            }
         }
     }
     SelfPlayDataset ds(tmp_results, batch_size);
     ds.save_to_dir(dir);
+    std::cout << "Persisted " << jobs_persisted << " out of " << jobs_found << std::endl;
     return jobs_persisted;
 }
 
@@ -188,7 +195,7 @@ void multithreaded_self_plays(const std::string &dir, int width, int height, Jac
         sleep(1);
         cout << "Simulations completed: " << jobs_completed << ". Total turns:" << turns << ". Total requests served: "
              << total_requests << ". Requests per second: " << (total_requests - prev_requests) << endl;
-        if (jobs_completed - jobs_persisted >= 100) {
+        if (jobs_completed - jobs_persisted >= config.at("simulation_persist_batch_size")) {
             persist_completed_selfplays(dir, self_plays, (int) config.at("train_batch_size"));
             jobs_persisted = jobs_completed;
         }
