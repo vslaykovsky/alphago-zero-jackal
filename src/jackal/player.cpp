@@ -36,7 +36,7 @@ void Player::inc_score(int score) {
     state.index_put_({PLANE_SCORE, "..."}, get_score() + score);
 }
 
-cv::Mat Player::get_image() {
+cv::Mat Player::get_image(float state_value) {
     static std::vector<cv::Scalar> player_color = {
             cv::Scalar(255, 255, 255, 255),
             cv::Scalar(0, 0, 0, 255)
@@ -57,8 +57,13 @@ cv::Mat Player::get_image() {
                     cv::Scalar(128, 128, 128, 255), 2);
     }
     cv::putText(image, "Score:" + std::to_string(get_score()),
-                cv::Point(ship.x * TILE_SIZE, int((ship.y + 0.9) * TILE_SIZE)),
-                cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255, 255, 255, 255), 2);
+                cv::Point(ship.x * TILE_SIZE, int((ship.y + 0.8) * TILE_SIZE)),
+                cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255, 255), 2);
+    if (state_value != 0.) {
+        cv::putText(image, "Value:" + std::to_string(state_value).substr(0, 4),
+                    cv::Point(ship.x * TILE_SIZE, int((ship.y + 0.98) * TILE_SIZE)),
+                    cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255, 255), 2);
+    }
     return image;
 }
 

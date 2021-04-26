@@ -88,16 +88,16 @@ void Jackal::store(const std::string &file_name) const {
     torch::save(state, file_name);
 }
 
-cv::Mat Jackal::get_image() {
+
+cv::Mat Jackal::get_image(MCTSStateActionValue *mcts) {
     if (!render) {
         throw std::runtime_error("get_image() is called from an object that doesn't support rendering");
     }
     auto ground_img = ground.get_image().clone();
-    int i = 0;
-    for (auto &player: players) {
-        auto player_img = player.get_image();
+    for (int i = 0; i < players.size(); ++i) {
+        auto &player = players[i];
+        auto player_img = player.get_image(mcts->state_value[i]);
         copy_with_alpha(ground_img, player_img, 0, 0);
-        i += 1;
     }
     if (debug) {
         auto actions = get_possible_actions();
@@ -105,6 +105,11 @@ cv::Mat Jackal::get_image() {
             auto action = decode_action(code);
             cv::arrowedLine(ground_img, tile_center(action.coordinates_from), tile_center(action.coordinates_to),
                             cv::Scalar(255, 255, 255), 5);
+            if (mcts) {
+                float proba = mcts->action_proba[code];
+                cv::putText(ground_img, std::to_string(proba).substr(0, 4), tile_center(action.coordinates_to),
+                            cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255, 255), 2);
+            }
         }
     }
     cv::putText(ground_img, "Turn: " + std::to_string(turn), cv::Point(ground_img.cols / 2 - TILE_SIZE, TILE_SIZE / 2),

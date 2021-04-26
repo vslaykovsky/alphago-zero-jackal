@@ -50,13 +50,13 @@ mcts_model_self_play(TGame game, F state_action_value_func, int mcts_steps, int 
             state_action_value.log(logger, turn, temperature);
         }
         self_play_result.add_state(game.get_state(), state_action_value);
-        int action = state_action_value.sample_action(temperature);
-        game = game.take_action(action);
         try {
-            auto image = game.get_image();
+            auto image = game.get_image(&state_action_value);
             cv::imwrite("tmp/mcts_self_play/game" + std::to_string(game.turn) + ".png", image);
         } catch (...) {
         }
+        int action = state_action_value.sample_action(temperature);
+        game = game.take_action(action);
         if (verbose) {
             std::cout << game << std::endl;
         }

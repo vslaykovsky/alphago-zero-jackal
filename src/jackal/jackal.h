@@ -43,7 +43,7 @@ public:
 
     void store(const std::string &file_name) const;
 
-    cv::Mat get_image();
+    cv::Mat get_image(MCTSStateActionValue* mcts = nullptr);
 
     void load(torch::Tensor &state);
 

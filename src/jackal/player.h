@@ -33,7 +33,7 @@ public:
 
     void inc_score(int score = 1);
 
-    cv::Mat get_image();
+    cv::Mat get_image(float state_value=0.);
 
     int get_score() const;
 

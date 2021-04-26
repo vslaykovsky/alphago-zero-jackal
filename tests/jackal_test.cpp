@@ -12,7 +12,11 @@ using namespace std;
 
 TEST(JackalTest, JackalRenderer) {
     Jackal j(7, 7, 2, true, true);
-    cv::imwrite("tmp/jackal.png", j.get_image());
+    MCTSStateActionValue av{{0.1, -0.1}, {}};
+    for (int a : j.get_possible_actions()) {
+        av.action_proba[a] = 0.5;
+    }
+    cv::imwrite("tmp/jackal.png", j.get_image(&av));
 }
 
 TEST(JackalTest, RandomSelfPlayRender) {

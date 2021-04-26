@@ -172,7 +172,8 @@ void multithreaded_self_plays(const std::string &dir, int width, int height, Jac
     std::cout << "Running " << self_plays.size() << " simulations" << std::endl;
     for (auto &self_play : self_plays) {
         task_queue.enqueue(
-                std::make_unique<TTaskJob>(Jackal(height, width, players, config.at("simulation_render") > 0), model,
+                std::make_unique<TTaskJob>(Jackal(height, width, players, config.at("simulation_render") > 0,
+                                                  config.at("simulation_render") > 0), model,
                                            config, self_play));
     }
     std::atomic<bool> terminated(false);
@@ -260,7 +261,7 @@ jackal_train(const std::string &dir, const std::unordered_map<std::string, float
             baseline_model,
             nullptr,
             [height, width, players](
-                    const std::string& dir,
+                    const std::string &dir,
                     JackalModel &model,
                     const std::unordered_map<std::string, float> &config
             ) {
