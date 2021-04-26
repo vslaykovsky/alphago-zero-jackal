@@ -60,7 +60,6 @@ struct MCTSStateActionValue {
         std::sort(values.begin(), values.end());
         logger->add_histogram("mcts_action_dist", step, values);
         logger->add_scalar("mcts_best_action_proba", step, max_proba / proba_sum);
-        logger->add_histogram("mcts_state_dist", step, state_value);
         logger->add_scalar("mcts_first_player_value", step, state_value[0]);
         logger->add_scalar("mcts_second_player_value", step, state_value[1]);
     }
@@ -112,6 +111,17 @@ struct MCTSNode {
     }
 };
 
+template<class T, class F>
+std::pair<float, float> mcts_action_value(MCTSNode<T, F> &node, int action, float exploration) {
+    auto child = node.children[action].get();
+    auto child_state_value = child ? child->state_value_sum[node.state.get_current_player_id()] /
+                                     (float) child->visits
+                                   : 0.;
+    auto prior_action_proba = node.prior.action_proba[action];
+    auto uct = sqrt(node.visits) / (1 + (child ? child->visits : 0));
+    return std::pair<float, float>(child_state_value, prior_action_proba * uct * exploration); // alphago zero paper - PUCT
+}
+
 
 template<class T, class F>
 int mcts_best_action(MCTSNode<T, F> &node, float exploration) {
@@ -121,13 +131,8 @@ int mcts_best_action(MCTSNode<T, F> &node, float exploration) {
     float best_value = -1000;
     std::vector<int> best_actions;
     for (int action : node.possible_actions) {
-        auto child = node.children[action].get();
-        auto child_state_value = child ? child->state_value_sum[node.state.get_current_player_id()] /
-                                         (float) child->visits
-                                       : 0.;
-        auto prior_action_proba = node.prior.action_proba[action];
-        auto uct = sqrt(node.visits) / (1 + (child ? child->visits : 0));
-        auto value = child_state_value + prior_action_proba * uct * exploration;
+        auto action_value = mcts_action_value(node, action, exploration);
+        auto value = action_value.first + action_value.second;
         if (value > best_value) {
             best_value = value;
             best_actions.clear();
@@ -174,11 +179,22 @@ void back_propagate(MCTSNode<T, F> &leaf) {
 
 template<class T, class F>
 MCTSStateActionValue mcts_search(
-        const T &state, F value_func, int iterations, float exploration) {
+        const T &state, F value_func, int iterations, float exploration, TensorBoardLogger* logger = nullptr, int step=0) {
     MCTSNode<T, F> root(state, nullptr, value_func);
     for (int i = 0; i < iterations; ++i) {
         auto &node = mcts_select(root, value_func, exploration);
         back_propagate(node);
+    }
+    if (logger) {
+        std::vector<float> mcts_mean_state_value;
+        std::vector<float> mcts_exploration;
+        for (int action : root.possible_actions) {
+            auto action_value = mcts_action_value(root, action, exploration);
+            mcts_mean_state_value.push_back(action_value.first);
+            mcts_exploration.push_back(action_value.second);
+        }
+        logger->add_histogram("mcts_mean_state_value", step, mcts_mean_state_value);
+        logger->add_histogram("mcts_exploration", step, mcts_exploration);
     }
     return MCTSStateActionValue{root.mean_state_values(), root.action_proba()};
 }
