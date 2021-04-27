@@ -33,7 +33,7 @@ public:
     explicit SelfPlayDataset(torch::Device device = torch::kCPU) : device(device) {}
 
     explicit SelfPlayDataset(const std::vector<SelfPlayResult> &self_plays, int batch_size, bool shuffle = true,
-                             torch::Device device = torch::kCPU, float sampling=1.0) : device(device) {
+                             torch::Device device = torch::kCPU, float sampling = 1.0) : device(device) {
         std::vector<Example> items;
         for (auto &self_play: self_plays) {
             int from_i = 0;
@@ -118,18 +118,41 @@ public:
         }
     }
 
-    void load(const std::string &fname) {
+    void load(const std::string &fname, float sampling = 1.0) {
         examples.clear();
         std::ifstream f(fname, std::ios::in | std::ios::binary);
         int32_t size;
         f.read((char *) &size, 4);
         for (int i = 0; i < size; ++i) {
+            if (rand01() > sampling) {
+                continue;
+            }
             Example ex;
             ex.x = load_tensor(f).to(device);
             ex.action_proba = load_tensor(f).to(device);
             ex.state_value = load_tensor(f).to(device);
             examples.push_back(ex);
         }
+    }
+
+    void load(std::vector<std::string> &fnames, float sampling = 1.0) {
+        std::vector<SelfPlayDataset> dss;
+        dss.resize(fnames.size(), SelfPlayDataset(device));
+        examples.clear();
+        int total = 0;
+        for (int i = 0; i < fnames.size(); ++i) {
+            auto fname = fnames[i];
+            dss[i].load(fname, sampling);
+            total += dss[i].examples.size();
+        }
+        examples.resize(total);
+        auto dest = 0;
+        for (auto &ds: dss) {
+            for (auto& ex: ds.examples) {
+                examples[dest++] = std::move(ex);
+            }
+        }
+        std::shuffle(examples.begin(), examples.end(), get_generator());
     }
 };
 
@@ -290,40 +313,32 @@ public:
 
         for (int epoch = 0; epoch < int(config["train_epochs"]); ++epoch) {
             auto selfplay_files = get_selfplay_files(dir + "/train");
-            for (int spf = 0; spf < selfplay_files.size(); spf++) {
-                auto selfplay_file = selfplay_files[spf];
-                std::cout << "train_epoch: " << epoch << " train file:" << selfplay_file << std::endl;
-                SelfPlayDataset ds(device);
-                ds.load(selfplay_files.back());
+            std::cout << "train_epoch: " << epoch << " train files:" << selfplay_files << std::endl;
+            SelfPlayDataset ds(device);
+            ds.load(selfplay_files, config["train_replay_sampling_rate"]);
 
-                float train_loss = 0;
-                for (int i = 0; i < (int) (ds.size()); ++i, ++step) {
-                    if (rand01() > config["train_replay_sampling_rate"])
-                        continue;
-                    optimizer.zero_grad();
-                    const auto &example = ds.get(i);
-                    const auto &output = model(example.x.to(device));
-                    torch::Tensor loss;
-                    auto state_value_loss = torch::mse_loss(output.value, example.state_value);
-                    if (config.at("enable_action_value") > 0) {
-                        auto policy_loss = torch::nll_loss(output.policy, example.action_proba);
-                        loss = policy_loss + state_value_loss;
-                        logger.add_scalar("policy-loss/train", step, policy_loss.item().toDouble());
-                    } else {
-                        loss = state_value_loss;
-                    }
-                    loss.backward();
-                    train_loss += loss.item().toDouble();
-                    optimizer.step();
-                    logger.add_scalar("loss/train", step, loss.item().toDouble());
-                    logger.add_scalar("state-value-loss/train", step, state_value_loss.item().toDouble());
+            float train_loss = 0;
+            int trained_batches = 0;
+            for (int i = 0; i < (int) (ds.size()); ++i, ++step) {
+                optimizer.zero_grad();
+                const auto &example = ds.get(i);
+                const auto &output = model(example.x.to(device));
+                torch::Tensor loss;
+                auto state_value_loss = torch::mse_loss(output.value, example.state_value);
+                if (config.at("enable_action_value") > 0) {
+                    auto policy_loss = torch::nll_loss(output.policy, example.action_proba);
+                    loss = policy_loss + state_value_loss;
+                    logger.add_scalar("policy-loss/train", step, policy_loss.item().toDouble());
+                } else {
+                    loss = state_value_loss;
                 }
-                train_loss /= (float) ds.size();
-                cout << "epoch:" << epoch << " train_loss:" << train_loss << endl;
-                benchmark_loss = compare_models<TGame, TModel>(model, baseline_model, int(config["eval_size"]),
-                                                               config["eval_temperature"], 1.);
-                logger.add_scalar("benchmark-loss/eval", step, benchmark_loss);
-                if (spf % max(1, int(selfplay_files.size() / 10)) == 0) {
+                loss.backward();
+                train_loss += loss.item().toDouble();
+                optimizer.step();
+                logger.add_scalar("loss/train", step, loss.item().toDouble());
+                logger.add_scalar("state-value-loss/train", step, state_value_loss.item().toDouble());
+                ++trained_batches;
+                if (step % 300 == 0) {
                     logger.add_scalar("state-value-loss/eval", step,
                                       evaluate<TModel>(model,
                                                        dir + "/eval",
@@ -331,14 +346,21 @@ public:
                                                        device)
                     );
                 }
-                logger.add_scalar("epoch/train", step, (float) epoch);
-                time_t t1;
-                time(&t1);
-                if (t1 - t > (int) config["timeout"]) {
-                    break;
-                }
+            }
+            train_loss /= (float) ds.size();
+            cout << "epoch:" << epoch << " train_loss:" << train_loss << " trained_batches: " << trained_batches
+                 << " total_batches:" << ds.size() << endl;
+            benchmark_loss = compare_models<TGame, TModel>(model, baseline_model, int(config["eval_size"]),
+                                                           config["eval_temperature"], 1.);
+            logger.add_scalar("benchmark-loss/eval", step, benchmark_loss);
+            logger.add_scalar("epoch/train", step, (float) epoch);
+            time_t t1;
+            time(&t1);
+            if (t1 - t > (int) config["timeout"]) {
+                break;
             }
         }
+        cout << "Saving model " << model_path << endl;
         torch::save(model, model_path);
         return benchmark_loss;
     }

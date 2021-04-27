@@ -152,15 +152,15 @@ int persist_completed_selfplays(const std::string &dir, std::vector<SelfPlayResu
     for (auto &self_play : selfplays) {
         if (!self_play.states.empty()) {
             jobs_found++;
-            if (abs(self_play.self_play_reward[0]) > 1e-5) {
+//            if (abs(self_play.self_play_reward[0]) > 1e-5) {
                 tmp_results.push_back(std::move(self_play));
                 jobs_persisted++;
-            } else {
-                self_play = SelfPlayResult();
-            }
+//            } else {
+//                self_play = SelfPlayResult();
+//            }
         }
     }
-    SelfPlayDataset ds(tmp_results, batch_size, true, torch::kCPU);
+    SelfPlayDataset ds(tmp_results, batch_size, true, torch::kCPU, sampling);
     ds.save_to_dir(dir);
     std::cout << "Persisted " << jobs_persisted << " out of " << jobs_found << std::endl;
     return jobs_persisted;
@@ -203,13 +203,13 @@ void multithreaded_self_plays(const std::string &dir, int width, int height, Jac
              << total_requests << ". Requests per second: " << (total_requests - prev_requests) << endl;
         if (jobs_completed - jobs_persisted >= config.at("simulation_persist_batch_size")) {
             persist_completed_selfplays(dir, self_plays, (int) config.at("train_batch_size"),
-                                        config.at("train_replay_sampling_rate"));
+                                        config.at("simulation_persist_sampling_rate"));
             jobs_persisted = jobs_completed;
         }
         prev_requests = total_requests;
     }
     persist_completed_selfplays(dir, self_plays, (int) config.at("train_batch_size"),
-                                config.at("train_replay_sampling_rate"));
+                                config.at("simulation_persist_sampling_rate"));
     terminated = true;
     for (auto &t: sim_threads) {
         t.join();
