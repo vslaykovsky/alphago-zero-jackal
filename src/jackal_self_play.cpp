@@ -26,12 +26,17 @@ int main(int argc, char *argv[]) {
     }
     Jackal jackal((int) config["jackal_height"], (int) config["jackal_width"], (int) config["jackal_players"]);
     auto dims = jackal.get_state().sizes();
-    JackalModel model(dims);
+    JackalModel model(dims,
+                      int(config["jackal_channels"]),
+                      int(config["jackal_blocks"]),
+                      int(config["jackal_players"]),
+                      config["enable_action_value"] > 0);
     auto model_path = dir + "/model.bin";
     if (experimental::filesystem::exists(model_path)) {
         cout << "Loading model from " << model_path << endl;
         torch::load(model, model_path);
     }
+    cout << model << endl;
     auto selfplay_files = get_selfplay_files(dir);
     cout << "Running selfplays and saving to " << dir << endl;
     time_t tm;

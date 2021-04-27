@@ -27,7 +27,7 @@ TEST(SPDS, TestSelfPlayDataSet) {
 
 TEST(SPDS, AnalyzeSPDS) {
     SelfPlayDataset ds;
-    auto fname = "tmp/jackal/epoch1/selfplay_0.bin";
+    auto fname = "tmp/jackal_state_action/epoch1/selfplay_0.bin";
     int nonz = 0;
     int total = 0;
     if (filesystem::exists(fname)) {

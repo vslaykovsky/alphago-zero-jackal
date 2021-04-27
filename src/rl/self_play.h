@@ -31,7 +31,9 @@ struct SelfPlayResult {
 template<class TGame, class F>
 SelfPlayResult
 mcts_model_self_play(TGame game, F state_action_value_func, int mcts_steps, int max_turns, float temperature,
-                     float exploration, std::atomic<int> *turns = nullptr, TensorBoardLogger *logger = nullptr,
+                     float exploration,
+                     int uct,
+                     std::atomic<int> *turns = nullptr, TensorBoardLogger *logger = nullptr,
                      bool verbose = false) {
     torch::NoGradGuard no_grad;
     SelfPlayResult self_play_result;
@@ -43,6 +45,7 @@ mcts_model_self_play(TGame game, F state_action_value_func, int mcts_steps, int 
                 state_action_value_func,
                 mcts_steps,
                 exploration,
+                uct,
                 logger,
                 turn
         );

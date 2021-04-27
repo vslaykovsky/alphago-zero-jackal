@@ -33,14 +33,10 @@ public:
     explicit SelfPlayDataset(torch::Device device = torch::kCPU) : device(device) {}
 
     explicit SelfPlayDataset(const std::vector<SelfPlayResult> &self_plays, int batch_size, bool shuffle = true,
-                             torch::Device device = torch::kCPU,
-                             bool only_terminal = false) : device(device) {
+                             torch::Device device = torch::kCPU, float sampling=1.0) : device(device) {
         std::vector<Example> items;
         for (auto &self_play: self_plays) {
             int from_i = 0;
-            if (only_terminal) {
-                from_i = (int) self_play.states.size() - 1;
-            }
             for (int i = from_i; i < self_play.states.size(); i++) {
                 items.push_back(Example{
                         self_play.states[i],
@@ -52,6 +48,9 @@ public:
         }
         if (shuffle)
             std::shuffle(items.begin(), items.end(), get_generator());
+        if (sampling < 1.0) {
+            items.erase(items.begin() + int(items.size() * sampling), items.end());
+        }
         for (int batch_idx = 0; batch_idx < items.size(); batch_idx += batch_size) {
             std::vector<torch::Tensor> x;
             std::vector<torch::Tensor> action_proba;
@@ -136,7 +135,7 @@ public:
 
 
 template<class TModel>
-float evaluate(TModel model, const std::string &dir, float sampling, torch::Device device=torch::kCPU) {
+float evaluate(TModel model, const std::string &dir, float sampling, torch::Device device = torch::kCPU) {
     model->eval();
     torch::NoGradGuard no_grad;
 
@@ -152,7 +151,7 @@ float evaluate(TModel model, const std::string &dir, float sampling, torch::Devi
             auto y = model(sample.x);
             auto target = sample.state_value;
             loss = loss + torch::mse_loss(y.value, target).item().toDouble();
-            total ++;
+            total++;
         }
     }
     return loss / total;
@@ -254,15 +253,22 @@ public:
 
     float train(const std::string &dir,
                 SelfPlayDataset *eval_set,
-                int &step) {
-        TModel model;
-        TModel baseline_model;
+                int &step,
+                int channels = 128,
+                int blocks = 10,
+                int players = 2) {
+        TGame game((int) config["jackal_height"], (int) config["jackal_width"], (int) config["jackal_players"]);
+        auto dims = game.get_state().sizes();
+
+        TModel model(dims, channels, blocks, players, config["enable_action_value"] > 0);
+        TModel baseline_model(dims, channels, blocks, players, config["enable_action_value"] > 0);
+
         auto model_path = dir + "/model.bin";
         if (std::filesystem::exists(model_path)) {
             torch::load(model, model_path);
             torch::load(baseline_model, model_path);
         }
-
+        std::cout << model << std::endl;
 
         using namespace std;
         cout << "running " << int(config["train_epochs"]) << " training epochs" << endl;
@@ -297,15 +303,20 @@ public:
                     optimizer.zero_grad();
                     const auto &example = ds.get(i);
                     const auto &output = model(example.x.to(device));
-                    auto policy_loss = torch::nll_loss(output.policy, example.action_proba);
+                    torch::Tensor loss;
                     auto state_value_loss = torch::mse_loss(output.value, example.state_value);
-                    auto loss = policy_loss + state_value_loss;
+                    if (config.at("enable_action_value") > 0) {
+                        auto policy_loss = torch::nll_loss(output.policy, example.action_proba);
+                        loss = policy_loss + state_value_loss;
+                        logger.add_scalar("policy-loss/train", step, policy_loss.item().toDouble());
+                    } else {
+                        loss = state_value_loss;
+                    }
                     loss.backward();
                     train_loss += loss.item().toDouble();
                     optimizer.step();
                     logger.add_scalar("loss/train", step, loss.item().toDouble());
                     logger.add_scalar("state-value-loss/train", step, state_value_loss.item().toDouble());
-                    logger.add_scalar("policy-loss/train", step, policy_loss.item().toDouble());
                 }
                 train_loss /= (float) ds.size();
                 cout << "epoch:" << epoch << " train_loss:" << train_loss << endl;

@@ -16,7 +16,7 @@ TEST(JackalTest, JackalRenderer) {
     for (int a : j.get_possible_actions()) {
         av.action_proba[a] = 0.5;
     }
-    cv::imwrite("tmp/jackal.png", j.get_image(&av));
+    cv::imwrite("tmp/jackal_state_action.png", j.get_image(&av));
 }
 
 TEST(JackalTest, RandomSelfPlayRender) {

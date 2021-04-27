@@ -27,15 +27,14 @@ int main(int argc, char *argv[]) {
         config = load_config_from_file(argv[argi + 1]);
     }
 
-    Jackal jackal((int) config["jackal_height"], (int) config["jackal_width"], (int) config["jackal_players"]);
-    auto dims = jackal.get_state().sizes();
-    JackalModel model(dims);
-    JackalModel baseline_model(dims);
-    int step;
+    int step = 0;
 
 
     Trainer<Jackal, JackalModel> trainer(config, torch::kCUDA);
 
-    auto loss = trainer.train(dir, nullptr, step);
+    auto loss = trainer.train(dir, nullptr, step,
+                              int(config["jackal_channels"]),
+                              int(config["jackal_blocks"]),
+                              int(config["jackal_players"]));
 
 }

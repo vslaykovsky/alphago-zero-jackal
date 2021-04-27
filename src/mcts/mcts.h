@@ -15,6 +15,12 @@
 typedef std::vector<float> MCTSStateValue;
 typedef std::unordered_map<int, float> MCTSActionValue;
 
+// alphago zero
+const int UCT_PUCT = 0;
+
+// simple mcts
+const int UCT_UCB1 = 1;
+
 struct MCTSStateActionValue {
     MCTSStateValue state_value;
     MCTSActionValue action_proba;
@@ -49,7 +55,7 @@ struct MCTSStateActionValue {
         std::vector<float> values;
         float max_proba = 0;
         float proba_sum = 0;
-        for (auto& kv: action_proba) {
+        for (auto &kv: action_proba) {
             float p = pow(kv.second, temperature);
             values.push_back(p);
             if (p > max_proba) {
@@ -112,26 +118,38 @@ struct MCTSNode {
 };
 
 template<class T, class F>
-std::pair<float, float> mcts_action_value(MCTSNode<T, F> &node, int action, float exploration) {
+std::pair<float, float> mcts_action_value(MCTSNode<T, F> &node, int action, float exploration, int uct) {
     auto child = node.children[action].get();
     auto child_state_value = child ? child->state_value_sum[node.state.get_current_player_id()] /
                                      (float) child->visits
                                    : 0.;
-    auto prior_action_proba = node.prior.action_proba[action];
-    auto uct = sqrt(node.visits) / (1 + (child ? child->visits : 0));
-    return std::pair<float, float>(child_state_value, prior_action_proba * uct * exploration); // alphago zero paper - PUCT
+    float exploration_value = 0;
+    switch (uct) {
+        case UCT_PUCT: {
+            auto prior_action_proba = node.prior.action_proba[action];
+            exploration_value =
+                    exploration * prior_action_proba * sqrt(node.visits) / (1 + (child ? child->visits : 0));
+            break;
+        }
+        case UCT_UCB1:
+            exploration_value = exploration * sqrt(log(std::max(1, node.visits)) / std::max(1, child ? child->visits : 0));
+            break;
+        default:
+            throw std::runtime_error("Unsupported uct value");
+    }
+    return std::pair<float, float>(child_state_value, exploration_value);
 }
 
 
 template<class T, class F>
-int mcts_best_action(MCTSNode<T, F> &node, float exploration) {
+int mcts_best_action(MCTSNode<T, F> &node, float exploration, int uct) {
     if (node.is_terminal) {
         throw std::runtime_error("mcts_best_action called for a terminal state");
     }
     float best_value = -1000;
     std::vector<int> best_actions;
     for (int action : node.possible_actions) {
-        auto action_value = mcts_action_value(node, action, exploration);
+        auto action_value = mcts_action_value(node, action, exploration, uct);
         auto value = action_value.first + action_value.second;
         if (value > best_value) {
             best_value = value;
@@ -150,13 +168,13 @@ int mcts_best_action(MCTSNode<T, F> &node, float exploration) {
 
 template<class T, class F>
 MCTSNode<T, F> &
-mcts_select(MCTSNode<T, F> &node, F value_func, float exploration) {
+mcts_select(MCTSNode<T, F> &node, F value_func, float exploration, int uct) {
     if (node.is_terminal) {
         return node;
     }
-    int best_action = mcts_best_action(node, exploration);
+    int best_action = mcts_best_action(node, exploration, uct);
     if (node.children[best_action].get()) {
-        return mcts_select(*node.children[best_action], value_func, exploration);
+        return mcts_select(*node.children[best_action], value_func, exploration, uct);
     } else {
         node.children[best_action].reset(new MCTSNode<T, F>(node.state.take_action(best_action), &node, value_func));
         return *node.children[best_action];
@@ -179,17 +197,18 @@ void back_propagate(MCTSNode<T, F> &leaf) {
 
 template<class T, class F>
 MCTSStateActionValue mcts_search(
-        const T &state, F value_func, int iterations, float exploration, TensorBoardLogger* logger = nullptr, int step=0) {
+        const T &state, F value_func, int iterations, float exploration, int uct = UCT_PUCT,
+        TensorBoardLogger *logger = nullptr, int step = 0) {
     MCTSNode<T, F> root(state, nullptr, value_func);
     for (int i = 0; i < iterations; ++i) {
-        auto &node = mcts_select(root, value_func, exploration);
+        auto &node = mcts_select(root, value_func, exploration, uct);
         back_propagate(node);
     }
     if (logger) {
         std::vector<float> mcts_mean_state_value;
         std::vector<float> mcts_exploration;
         for (int action : root.possible_actions) {
-            auto action_value = mcts_action_value(root, action, exploration);
+            auto action_value = mcts_action_value(root, action, exploration, uct);
             mcts_mean_state_value.push_back(action_value.first);
             mcts_exploration.push_back(action_value.second);
         }

@@ -38,16 +38,16 @@ torch::Tensor ResModelImpl::forward(torch::Tensor x) {
     return x;
 }
 
-ValueHeadImpl::ValueHeadImpl(c10::IntArrayRef input_shape, int players) {
+ValueHeadImpl::ValueHeadImpl(c10::IntArrayRef input_shape, int players, int head_features, int head_channels)
+        : head_channels(head_channels) {
     input_channels = (int) input_shape[0];
     height = (int) input_shape[1];
     width = (int) input_shape[2];
-    head_channels = 2;
     conv2d = register_module("conv2d", torch::nn::Conv2d(input_channels, head_channels, 1));
     batch_norm = register_module("batch_norm", torch::nn::BatchNorm2d(head_channels));
-    int head_features = 256;
+
     linear1 = register_module("linear1", torch::nn::Linear(head_channels * width * height, head_features));
-    linear2 = register_module("latent_state", torch::nn::Linear(head_features, players));
+    latent_state = register_module("latent_state", torch::nn::Linear(head_features, players));
 }
 
 torch::Tensor ValueHeadImpl::forward(torch::Tensor x) {
@@ -57,7 +57,7 @@ torch::Tensor ValueHeadImpl::forward(torch::Tensor x) {
     x = torch::reshape(x, {x.size(0), -1});
     x = linear1(x);
     x = torch::relu(x);
-    x = linear2(x);
+    x = latent_state(x);
     x = torch::tanh(x);
     return x;
 }
@@ -81,7 +81,8 @@ torch::Tensor PolicyHeadImpl::forward(torch::Tensor x) {
     return torch::log_softmax(x, 1);
 }
 
-JackalModelImpl::JackalModelImpl(c10::IntArrayRef input_shape, int res_channels, int blocks, int players) : blocks(blocks) {
+JackalModelImpl::JackalModelImpl(c10::IntArrayRef input_shape, int res_channels, int blocks, int players,
+                                 bool action_value) : blocks(blocks) {
     assert(input_shape.size() == 4);
     int input_channels = (int) input_shape[1];
     int height = (int) input_shape[2];
@@ -90,8 +91,12 @@ JackalModelImpl::JackalModelImpl(c10::IntArrayRef input_shape, int res_channels,
     for (int i = 0; i < blocks; ++i) {
         register_module("res" + std::to_string(i), ResModel(res_channels));
     }
-    policy_head = register_module("policy_head", PolicyHead(c10::IntArrayRef({res_channels, height, width}), 4));
-    value_head = register_module("value_head", ValueHead(c10::IntArrayRef({res_channels, height, width}), players));
+    if (action_value) {
+        policy_head = register_module("policy_head", PolicyHead(c10::IntArrayRef({res_channels, height, width}), 4));
+    }
+    int head_channels = 2;
+    value_head = register_module("value_head", ValueHead(c10::IntArrayRef({res_channels, height, width}), players,
+                                                         height * width, head_channels));
 }
 
 GameModelOutput JackalModelImpl::forward(torch::Tensor x) {
@@ -100,7 +105,10 @@ GameModelOutput JackalModelImpl::forward(torch::Tensor x) {
         auto res_model = named_children()["res" + std::to_string(i)]->as<ResModel>();
         x = res_model->forward(x);
     }
-    auto policy = policy_head(x);
+    torch::Tensor policy;
+    if (policy_head) {
+        policy = policy_head(x);
+    }
     auto value = value_head(x);
     return GameModelOutput{policy, value};
 }

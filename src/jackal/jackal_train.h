@@ -54,7 +54,7 @@ self_play_thread(int thread_num, TTaskQueue *task_queue, TModelQueue *model_queu
                 goto exit_thread;
             }
         }
-        cout << "[thread:" << thread_num << "] started task" << endl;
+//        cout << "[thread:" << thread_num << "] started task" << endl;
         auto &config(task->config);
         task->self_play_result = mcts_model_self_play<>(
                 task->jackal,
@@ -70,11 +70,12 @@ self_play_thread(int thread_num, TTaskQueue *task_queue, TModelQueue *model_queu
                 int(config.at("simulation_max_turns")),
                 config.at("simulation_temperature"),
                 config.at("mcts_exploration"),
+                config.at("enable_action_value") > 0 ? UCT_PUCT : UCT_UCB1,
                 turns,
                 logger
         );
         (*jobs_completed)++;
-        cout << "[thread:" << thread_num << "] finished task" << endl;
+//        cout << "[thread:" << thread_num << "] finished task" << endl;
     }
     exit_thread:
     cout << "[thread:" << thread_num << "] exit thread" << endl;
@@ -113,10 +114,13 @@ bool read_request(TModelQueue &queue, RequestContext &request, std::atomic<bool>
 void reply(RequestContext &request) {
     auto &items(request.items);
     auto &model_output(request.model_output);
-    model_output.policy = model_output.policy.to(torch::kCPU);
+    bool action_value_enabled = model_output.policy.numel() > 0;
+    if (action_value_enabled)
+        model_output.policy = model_output.policy.to(torch::kCPU);
     model_output.value = model_output.value.to(torch::kCPU);
     for (int i = 0; i < items.size(); ++i) {
-        items[i].output->policy = model_output.policy.index({i, "..."}).unsqueeze(0);
+        if (action_value_enabled)
+            items[i].output->policy = model_output.policy.index({i, "..."}).unsqueeze(0);
         items[i].output->value = model_output.value.index({i, "..."}).unsqueeze(0);
         items[i].semaphore->signal();
     }
@@ -140,13 +144,14 @@ void model_loop(JackalModel model, TModelQueue *queue, std::atomic<bool> *termin
     }
 }
 
-int persist_completed_selfplays(const std::string& dir, std::vector<SelfPlayResult>& selfplays, int batch_size) {
+int persist_completed_selfplays(const std::string &dir, std::vector<SelfPlayResult> &selfplays, int batch_size,
+                                float sampling) {
     std::vector<SelfPlayResult> tmp_results;
     int jobs_persisted = 0;
     int jobs_found = 0;
     for (auto &self_play : selfplays) {
         if (!self_play.states.empty()) {
-            jobs_found ++;
+            jobs_found++;
             if (abs(self_play.self_play_reward[0]) > 1e-5) {
                 tmp_results.push_back(std::move(self_play));
                 jobs_persisted++;
@@ -155,7 +160,7 @@ int persist_completed_selfplays(const std::string& dir, std::vector<SelfPlayResu
             }
         }
     }
-    SelfPlayDataset ds(tmp_results, batch_size);
+    SelfPlayDataset ds(tmp_results, batch_size, true, torch::kCPU);
     ds.save_to_dir(dir);
     std::cout << "Persisted " << jobs_persisted << " out of " << jobs_found << std::endl;
     return jobs_persisted;
@@ -197,12 +202,14 @@ void multithreaded_self_plays(const std::string &dir, int width, int height, Jac
         cout << "Simulations completed: " << jobs_completed << ". Total turns:" << turns << ". Total requests served: "
              << total_requests << ". Requests per second: " << (total_requests - prev_requests) << endl;
         if (jobs_completed - jobs_persisted >= config.at("simulation_persist_batch_size")) {
-            persist_completed_selfplays(dir, self_plays, (int) config.at("train_batch_size"));
+            persist_completed_selfplays(dir, self_plays, (int) config.at("train_batch_size"),
+                                        config.at("train_replay_sampling_rate"));
             jobs_persisted = jobs_completed;
         }
         prev_requests = total_requests;
     }
-    persist_completed_selfplays(dir, self_plays, (int) config.at("train_batch_size"));
+    persist_completed_selfplays(dir, self_plays, (int) config.at("train_batch_size"),
+                                config.at("train_replay_sampling_rate"));
     terminated = true;
     for (auto &t: sim_threads) {
         t.join();
