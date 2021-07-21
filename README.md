@@ -1,3 +1,4 @@
+
 ## dependencies
 
 ### install nvidia + cuda + cudnn
@@ -28,3 +29,26 @@ sudo apt-get install libopencv-dev libprotobuf-dev nlohmann-json3-dev libgtest-d
 
 ### build tensorboard_logger
 cd third_party/tb_logger && make 
+
+
+### remote install
+
+apt-get install cmake vim wget unzip
+wget https://download.pytorch.org/libtorch/cu111/libtorch-cxx11-abi-shared-with-deps-1.8.1%2Bcu111.zip
+unzip libtorch*.zip
+apt-get install libopencv-dev libprotobuf-dev nlohmann-json3-dev libgtest-dev libboost-dev protobuf-compiler
+
+
+# article
+
+- intro: jackal game 
+- existing algos: alphago, alphago-zero, mu-zero
+- encoding: cnn vs lstm, arrows encoding, integer encoding, state/action encoding. Loss function
+- performance: multithreading c++ vs python, bottlenecks of state copy/encoding, queue based model execution,
+- training: replay buffer, model degrades, state function only?
+- determinization: closed tiles
+
+
+
+# TODO
+- test state value of synthetic game states

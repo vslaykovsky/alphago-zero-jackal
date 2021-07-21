@@ -35,6 +35,8 @@ int main(int argc, char *argv[]) {
     if (experimental::filesystem::exists(model_path)) {
         cout << "Loading model from " << model_path << endl;
         torch::load(model, model_path);
+    } else {
+        throw std::runtime_error("no model.bin found");
     }
     cout << model << endl;
     auto selfplay_files = get_selfplay_files(dir);

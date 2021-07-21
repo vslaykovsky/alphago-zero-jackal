@@ -148,7 +148,7 @@ public:
         examples.resize(total);
         auto dest = 0;
         for (auto &ds: dss) {
-            for (auto& ex: ds.examples) {
+            for (auto &ex: ds.examples) {
                 examples[dest++] = std::move(ex);
             }
         }
@@ -298,9 +298,12 @@ public:
         using namespace std;
         model->train();
         model->to(device);
-        torch::optim::Adam optimizer(model->parameters(),
-                                     torch::optim::AdamOptions(config["train_learning_rate"]).weight_decay(
-                                             config["train_l2_regularization"]));
+        torch::optim::SGD optimizer(model->parameters(),
+                                    torch::optim::SGDOptions(config["train_learning_rate"]).weight_decay(
+                                            config["train_l2_regularization"]));
+//        torch::optim::Adam optimizer(model->parameters(),
+//                                    torch::optim::AdamOptions(config["train_learning_rate"]).weight_decay(
+//                                            config["train_l2_regularization"]));
         time_t t;
         time(&t);
         float benchmark_loss = 1e5;
@@ -360,8 +363,8 @@ public:
                 break;
             }
         }
-        cout << "Saving model " << model_path << endl;
-        torch::save(model, model_path);
+        cout << "Saving model " << model_path << ".trained" << endl;
+        torch::save(model, model_path + ".trained");
         return benchmark_loss;
     }
 

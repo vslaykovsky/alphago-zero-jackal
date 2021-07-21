@@ -4,12 +4,17 @@
 
 Jackal::Jackal(int height, int width, int players_num, bool render, bool debug) :
         ground(height, width, render, debug),
-        current_player(0),
+        current_player(rand() % players_num),
         turn(0),
         render(render),
         debug(debug) {
-    for (int p = 0; p < players_num; ++p)
+    std::cout << "start player " << current_player << std::endl;
+    for (int p = 0; p < players_num; ++p) {
         players.emplace_back(Player(p, width, height, render, debug));
+        if (p == current_player) {
+            players[p].set_current_player(true);
+        }
+    }
 }
 
 
@@ -96,7 +101,7 @@ cv::Mat Jackal::get_image(MCTSStateActionValue *mcts) {
     auto ground_img = ground.get_image().clone();
     for (int i = 0; i < players.size(); ++i) {
         auto &player = players[i];
-        auto player_img = player.get_image(mcts->state_value[i]);
+        auto player_img = player.get_image(mcts ? mcts->state_value[i] : 0.);
         copy_with_alpha(ground_img, player_img, 0, 0);
     }
     if (debug) {

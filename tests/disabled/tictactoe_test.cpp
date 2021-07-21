@@ -1,9 +1,9 @@
 #include <gtest/gtest.h>
-#include "../src/tictactoe/tictactoe_model.h"
-#include "../src/rl/self_play.h"
-#include "../src/rl/train.h"
-#include "../src/tictactoe/tictactoe.h"
-#include "helpers.h"
+#include "../../src/tictactoe/tictactoe_model.h"
+#include "../../src/rl/self_play.h"
+#include "../../src/rl/train.h"
+#include "../../src/tictactoe/tictactoe.h"
+#include "../helpers.h"
 using namespace std;
 
 

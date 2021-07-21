@@ -42,6 +42,8 @@ public:
 
     int get_delay(int x, int y) const;
 
+    void set_delay(int x, int y, int delay);
+
     std::vector<Coords> get_directions(int x, int y) const;
 
     static const std::vector<Coords> &get_arrow_directions(SpriteType st);
@@ -59,4 +61,6 @@ public:
     void remove_gold(Coords point);
 
     bool valid_coord(int x, int y) const;
+
+    void set_ground(int x, int y);
 };

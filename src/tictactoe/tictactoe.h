@@ -27,7 +27,7 @@ public:
 
     torch::Tensor get_state() const;
 
-    cv::Mat get_image() const;
+    cv::Mat get_image(MCTSStateActionValue* sav=nullptr) const;
 };
 
 std::ostream &operator<<(std::ostream &os, const TicTacToe &ttt);

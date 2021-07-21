@@ -112,6 +112,10 @@ int Ground::get_delay(int x, int y) const {
     return state[PLANE_DELAYS][y][x].item<int>();
 }
 
+void Ground::set_delay(int x, int y, int delay) {
+    state[PLANE_DELAYS][y][x] = delay;
+}
+
 std::vector<Coords> Ground::get_directions(int x, int y) const {
     std::vector<Coords> result;
     auto &dirs = all_directions();
@@ -182,4 +186,9 @@ void Ground::remove_gold(Coords point) {
 
 bool Ground::valid_coord(int x, int y) const {
     return x >= 0 && x < width() && y >= 0 && y < height();
+}
+
+void Ground::set_ground(int x, int y) {
+    set_default_directions(x, y);
+    set_delay(x, y, 1);
 }

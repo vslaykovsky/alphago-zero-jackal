@@ -7,6 +7,7 @@
 #include <torch/data/datasets/tensor.h>
 #include <torch/torch.h>
 #include <tensorboard_logger.h>
+#include <filesystem>
 #include "../mcts/mcts.h"
 #include "play.h"
 #include "../util/utils.h"
@@ -38,7 +39,9 @@ mcts_model_self_play(TGame game, F state_action_value_func, int mcts_steps, int 
     torch::NoGradGuard no_grad;
     SelfPlayResult self_play_result;
     MCTSStateActionValue state_action_value;
+
     int turn = 0;
+    std::string img_dir;
     while (turn < max_turns && !game.get_possible_actions().empty()) {
         state_action_value = mcts_search(
                 game,
@@ -55,7 +58,11 @@ mcts_model_self_play(TGame game, F state_action_value_func, int mcts_steps, int 
         self_play_result.add_state(game.get_state(), state_action_value);
         try {
             auto image = game.get_image(&state_action_value);
-            cv::imwrite("tmp/mcts_self_play/game" + std::to_string(game.turn) + ".png", image);
+            if (img_dir.empty()) {
+                img_dir = "tmp/mcts_self_play/" + std::to_string(rand());
+                std::filesystem::create_directories(img_dir);
+            }
+            cv::imwrite(img_dir + "/game" + std::to_string(game.turn) + ".png", image);
         } catch (...) {
         }
         int action = state_action_value.sample_action(temperature);
@@ -94,7 +101,7 @@ mcts_model_self_play(TGame game, TModel model1, TModel model2, int mcts_steps, i
             gmo = model2(game.get_state().to(device));
         }
         return to_state_action_value(gmo, game);
-    }, mcts_steps, max_turns, temperature, exploration, turns, logger, verbose);
+    }, mcts_steps, max_turns, temperature, exploration, UCT_UCB1, turns, logger, verbose);
 }
 
 template<class TGame, class TModel>

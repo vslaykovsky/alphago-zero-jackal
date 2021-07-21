@@ -65,6 +65,11 @@ add_executable(jackal_self_play src/jackal_self_play.cpp ${SRCS})
 target_link_libraries(jackal_self_play nlohmann_json::nlohmann_json  ${TORCH_LIBRARIES} ${OpenCV_LIBS} ${Protobuf_LIBRARIES} pthread)
 #set_property(TARGET jackal_self_play PROPERTY CXX_STANDARD 14)
 
+#jackal_model_test
+add_executable(jackal_model_test src/jackal_model_test.cpp ${SRCS})
+target_link_libraries(jackal_model_test nlohmann_json::nlohmann_json  ${TORCH_LIBRARIES} ${OpenCV_LIBS} ${Protobuf_LIBRARIES} pthread)
+#set_property(TARGET jackal_self_play PROPERTY CXX_STANDARD 14)
+
 
 # testing
 enable_testing()
